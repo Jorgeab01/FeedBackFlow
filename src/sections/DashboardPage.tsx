@@ -485,7 +485,7 @@ export function DashboardPage({ user, onLogout, onNavigate: _onNavigate, themePr
     if (commentToDelete) {
       deleteComment(commentToDelete);
       toast.success('Comentario eliminado', {
-        description: 'El comentario ha sido eliminado, pero sigue contando para el límite mensual.',
+        description: 'El comentario ha sido eliminado.',
       });
     }
     setShowDeleteCommentDialog(false);
@@ -2563,25 +2563,30 @@ export function DashboardPage({ user, onLogout, onNavigate: _onNavigate, themePr
               <AlertTriangle className="w-5 h-5" />
               ¿Eliminar comentario?
             </DialogTitle>
-            <DialogDescription className="pt-4 space-y-3">
-              <p>
+            <DialogDescription asChild>
+            <div className="pt-4 space-y-3">
+              <div>
                 Estás a punto de eliminar este comentario de la vista.
-              </p>
-              
+              </div>
+
               {!isPro && (
-                  <div className="bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-500 p-4 rounded-r-lg">
-                    <p className="text-sm text-amber-800 dark:text-amber-200 font-medium">
-                      Importante: Este comentario seguirá contando para tu límite mensual.
-                    </p>
-                    <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">
-                      Has usado {limits.maxCommentsPerMonth - remaining} de {limits.maxCommentsPerMonth} comentarios este mes.
-                    </p>
+                <div className="bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-500 p-4 rounded-r-lg space-y-1">
+                  <div className="text-sm text-amber-800 dark:text-amber-200 font-medium">
+                    Importante: Este comentario seguirá contando para tu límite mensual.
                   </div>
+                  <div className="text-sm text-amber-700 dark:text-amber-300">
+                    Has usado {limits.maxCommentsPerMonth - remaining} de {limits.maxCommentsPerMonth} comentarios este mes.
+                  </div>
+                </div>
               )}
-              <p className="text-sm text-gray-500">
-                    Eliminar este comentario no hará que el problema desaparezca, solo evitará que puedas solucionarlo.
-                  </p>
-            </DialogDescription>
+
+              <div className="text-sm text-gray-500">
+                Eliminar este comentario no hará que el problema desaparezca, solo evitará que puedas solucionarlo.
+              </div>
+            </div>
+          </DialogDescription>
+
+
           </DialogHeader>
           
           <div className="flex gap-3 mt-4">
