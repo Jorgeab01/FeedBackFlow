@@ -1,94 +1,75 @@
-import { useState, useCallback, useEffect } from 'react';
-import type { Business } from '@/types';
-import { USERS_KEY } from './useAuth';
+import { useState, useCallback, useEffect } from 'react'
+import { supabase } from '@/lib/supabase'
+import type { Business } from '@/types'
 
+/**
+ * Hook para obtener y actualizar UN negocio
+ */
 export function useBusiness(businessId?: string) {
-  const [business, setBusiness] = useState<Business | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [business, setBusiness] = useState<Business | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
 
+  // 📥 Cargar negocio desde Supabase
   useEffect(() => {
     if (!businessId) {
-      setIsLoading(false);
-      return;
+      setIsLoading(false)
+      return
     }
 
-    const stored = localStorage.getItem(USERS_KEY);
-    if (stored) {
-      try {
-        const businesses: Business[] = JSON.parse(stored);
-        const found = businesses.find(b => b.id === businessId);
-        setBusiness(found || null);
-      } catch (e) {
-        setBusiness(null);
+    const fetchBusiness = async () => {
+      setIsLoading(true)
+
+      const { data, error } = await supabase
+        .from('businesses')
+        .select('*')
+        .eq('id', businessId)
+        .single()
+
+      if (!error) {
+        setBusiness(data)
+      } else {
+        setBusiness(null)
       }
-    }
-    setIsLoading(false);
-  }, [businessId]);
 
+      setIsLoading(false)
+    }
+
+    fetchBusiness()
+  }, [businessId])
+
+  // 🔗 Generar URL pública de feedback
   const getBusinessUrl = useCallback(() => {
-    if (!business) return '';
-    const baseUrl = window.location.origin;
-    return `${baseUrl}/feedback/${business.id}`;
-  }, [business]);
+    if (!business) return ''
+    return `${window.location.origin}/feedback/${business.id}`
+  }, [business])
 
-  // FUNCIÓN PARA ACTUALIZAR EL NEGOCIO
-  const updateBusiness = useCallback((updates: Partial<Omit<Business, 'id' | 'createdAt'>>) => {
-    if (!businessId || !business) return false;
+  // ✏️ Actualizar negocio en Supabase
+  const updateBusiness = useCallback(
+    async (updates: Partial<Omit<Business, 'id' | 'created_at'>>) => {
+      if (!businessId) return false
 
-    const stored = localStorage.getItem(USERS_KEY);
-    if (!stored) return false;
+      const { data, error } = await supabase
+        .from('businesses')
+        .update({
+          ...updates,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', businessId)
+        .select()
+        .maybeSingle()
 
-    try {
-      const businesses: Business[] = JSON.parse(stored);
-      const index = businesses.findIndex(b => b.id === businessId);
-      
-      if (index === -1) return false;
+      if (error) return false
 
-      const updatedBusiness = { ...businesses[index], ...updates };
-      businesses[index] = updatedBusiness;
-      
-      localStorage.setItem(USERS_KEY, JSON.stringify(businesses));
-      setBusiness(updatedBusiness);
-      
-      // Actualizar current_user si cambió el nombre o plan
-      const currentUser = localStorage.getItem('feedbackflow_current_user');
-      if (currentUser) {
-        const userData = JSON.parse(currentUser);
-        if (userData.businessId === businessId) {
-          if (updates.name) userData.businessName = updates.name;
-          if (updates.plan) userData.plan = updates.plan;
-          localStorage.setItem('feedbackflow_current_user', JSON.stringify(userData));
-          window.dispatchEvent(new Event('storage'));
-        }
-      }
-      
-      return true;
-    } catch (e) {
-      return false;
-    }
-  }, [businessId, business]);
+      setBusiness(data)
+      return true
+    },
+    [businessId]
+  )
 
   return {
     business,
     isLoading,
     getBusinessUrl,
-    updateBusiness // <-- IMPORTANTE: Exportar aquí
-  };
-}
-
-export function useAllBusinesses() {
-  const [businesses, setBusinesses] = useState<Business[]>([]);
-
-  useEffect(() => {
-    const stored = localStorage.getItem(USERS_KEY);
-    if (stored) {
-      try {
-        setBusinesses(JSON.parse(stored));
-      } catch (e) {
-        setBusinesses([]);
-      }
-    }
-  }, []);
-
-  return { businesses };
+    updateBusiness
+  }
 }

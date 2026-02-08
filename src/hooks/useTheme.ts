@@ -3,14 +3,24 @@ import { useState, useEffect, useCallback } from 'react';
 type Theme = 'light' | 'dark' | 'system';
 
 export function useTheme() {
-  const [theme, setTheme] = useState<Theme>(() => {
-    const stored = localStorage.getItem('feedbackflow_theme');
-    return (stored as Theme) || 'system';
-  });
-
+  // Estado inicial sin acceder a localStorage (para evitar problemas de hidratación)
+  const [theme, setThemeState] = useState<Theme>('system');
   const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>('light');
+  const [isInitialized, setIsInitialized] = useState(false);
 
+  // Cargar tema desde localStorage solo en el cliente
   useEffect(() => {
+    const stored = localStorage.getItem('feedbackflow_theme');
+    if (stored && ['light', 'dark', 'system'].includes(stored)) {
+      setThemeState(stored as Theme);
+    }
+    setIsInitialized(true);
+  }, []);
+
+  // Aplicar el tema
+  useEffect(() => {
+    if (!isInitialized) return;
+
     const root = window.document.documentElement;
     
     const applyTheme = () => {
@@ -40,16 +50,17 @@ export function useTheme() {
       mediaQuery.addEventListener('change', handleChange);
       return () => mediaQuery.removeEventListener('change', handleChange);
     }
-  }, [theme]);
+  }, [theme, isInitialized]);
 
-  const setThemeValue = useCallback((newTheme: Theme) => {
-    setTheme(newTheme);
+  const setTheme = useCallback((newTheme: Theme) => {
+    setThemeState(newTheme);
     localStorage.setItem('feedbackflow_theme', newTheme);
   }, []);
 
   return {
     theme,
-    setTheme: setThemeValue,
+    setTheme,
     resolvedTheme,
+    isInitialized,
   };
 }

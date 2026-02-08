@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { supabase } from '@/lib/supabase'
 
 import { 
   LogOut, 
@@ -84,9 +85,7 @@ import {
   getDaysInMonth,
   isToday,
   isBefore,
-  isAfter,
-  startOfMonth as getStartOfMonth,
-  isSameMonth
+  isAfter
 } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -203,7 +202,7 @@ function useMonthlyUsage(businessId: string, plan: PlanType) {
   return { usage, remaining, percentage, isLimitReached, isNearLimit, incrementUsage, limits };
 }
 
-export function DashboardPage({ user, onLogout, onNavigate, themeProps }: DashboardPageProps) {
+export function DashboardPage({ user, onLogout, onNavigate: _onNavigate, themeProps }: DashboardPageProps) {
   const { comments, isLoading, deleteComment, getStats } = useComments(user.businessId);
   const { business, getBusinessUrl, updateBusiness } = useBusiness(user.businessId);
   
@@ -225,7 +224,6 @@ export function DashboardPage({ user, onLogout, onNavigate, themeProps }: Dashbo
   const [showSettings, setShowSettings] = useState(false);
   const [settingsTab, setSettingsTab] = useState('general');
   const [businessName, setBusinessName] = useState(user.businessName);
-  const [selectedPlan, setSelectedPlan] = useState<PlanType>(user.plan);
   
   // Estados para confirmación de eliminar comentario
   const [commentToDelete, setCommentToDelete] = useState<string | null>(null);
@@ -282,7 +280,6 @@ export function DashboardPage({ user, onLogout, onNavigate, themeProps }: Dashbo
 
   // Verificar si es plan Pro
   const isPro = user.plan === 'pro';
-  const isFree = user.plan === 'free';
 
   // Calcular bounds de fechas
   const dateBounds = useMemo(() => {
@@ -345,146 +342,139 @@ export function DashboardPage({ user, onLogout, onNavigate, themeProps }: Dashbo
   const stats = getStats();
 
   // Funciones de manejo
-  const handleSaveName = useCallback(() => {
+  const handleSaveName = useCallback(async () => {
+
     if (businessName.trim() === '') {
-      toast.error('El nombre no puede estar vacío');
-      return;
+      toast.error('El nombre no puede estar vacío')
+      return
     }
+
     if (businessName.trim().length < 3) {
-      toast.error('El nombre debe tener al menos 3 caracteres');
-      return;
+      toast.error('El nombre debe tener al menos 3 caracteres')
+      return
     }
-    if (updateBusiness) {
-      const success = updateBusiness({ name: businessName });
-      if (success) {
-        toast.success('Nombre actualizado correctamente');
-        setTimeout(() => window.location.reload(), 1000); // 1 segundo de espera
-      }
-    }
-  }, [businessName, updateBusiness]);
 
-  const handleChangePlan = useCallback((newPlan: PlanType) => {
-    setSelectedPlan(newPlan);
-    if (updateBusiness) {
-      const success = updateBusiness({ plan: newPlan });
-      if (success) {
-        toast.success(`Plan cambiado a ${newPlan.toUpperCase()}`);
-        setTimeout(() => window.location.reload(), 1000); // 1 segundo de espera
-      }
-    }
-  }, [updateBusiness]);
+    if (!updateBusiness) return
 
-  const handlePasswordChange = useCallback(() => {
-    const errors: Record<string, string> = {};
-    
+    const success = await updateBusiness({ name: businessName })
+
+    if (success) {
+      toast.success('Nombre actualizado correctamente')
+    } else {
+      toast.error('No se pudo actualizar el nombre')
+    }
+  }, [businessName, updateBusiness])
+
+  const handlePasswordChange = useCallback(async () => {
+    const errors: Record<string, string> = {}
+
     if (!currentPassword) {
-      errors.currentPassword = 'La contraseña actual es obligatoria';
-    } else if (business && currentPassword !== business.ownerPassword) {
-      errors.currentPassword = 'La contraseña actual es incorrecta';
+      errors.currentPassword = 'La contraseña actual es obligatoria'
     }
-    
-    if (!newPassword) {
-      errors.newPassword = 'La nueva contraseña es obligatoria';
-    } else if (newPassword.length < 6) {
-      errors.newPassword = 'Debe tener al menos 6 caracteres';
-    } else if (business && newPassword === business.ownerPassword) {
-      errors.newPassword = 'La nueva contraseña no puede ser igual a la actual';
+
+    if (!newPassword || newPassword.length < 6) {
+      errors.newPassword = 'Debe tener al menos 6 caracteres'
     }
-    
-    if (!confirmNewPassword) {
-      errors.confirmNewPassword = 'Debes confirmar la contraseña';
-    } else if (newPassword !== confirmNewPassword) {
-      errors.confirmNewPassword = 'Las contraseñas no coinciden';
+
+    if (newPassword !== confirmNewPassword) {
+      errors.confirmNewPassword = 'Las contraseñas no coinciden'
     }
-    
+
     if (Object.keys(errors).length > 0) {
-      setPasswordErrors(errors);
-      toast.error('Por favor, corrige los errores marcados');
-      return;
+      setPasswordErrors(errors)
+      toast.error('Corrige los errores')
+      return
     }
-    
-    if (!business) return;
-    
-    if (updateBusiness) {
-      const success = updateBusiness({ ownerPassword: newPassword });
-      if (success) {
-        toast.success('Contraseña actualizada correctamente');
-        setCurrentPassword('');
-        setNewPassword('');
-        setConfirmNewPassword('');
-        setShowPasswordForm(false);
-        setPasswordErrors({});
-      }
-    }
-  }, [business, currentPassword, newPassword, confirmNewPassword, updateBusiness]);
 
-  const handleChangeEmail = useCallback(() => {
-    if (!business) return;
-    
-    if (emailPassword !== business.ownerPassword) {
-      toast.error('Contraseña incorrecta');
-      return;
-    }
-    
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(newEmail)) {
-      toast.error('Introduce un correo válido');
-      return;
-    }
-    
-    const storedUsers = localStorage.getItem('feedbackflow_users');
-    if (storedUsers) {
-      const businesses: any[] = JSON.parse(storedUsers);
-      const exists = businesses.some(b => b.ownerEmail === newEmail && b.id !== user.businessId);
-      if (exists) {
-        toast.error('Este correo ya está registrado por otro usuario');
-        return;
-      }
-    }
-    
-    if (updateBusiness) {
-      const success = updateBusiness({ ownerEmail: newEmail });
-      if (success) {
-        const currentUser = localStorage.getItem('feedbackflow_current_user');
-        if (currentUser) {
-          const userData = JSON.parse(currentUser);
-          userData.email = newEmail;
-          localStorage.setItem('feedbackflow_current_user', JSON.stringify(userData));
-        }
-        
-        toast.success('Correo actualizado correctamente');
-        setNewEmail('');
-        setEmailPassword('');
-        setShowEmailForm(false);
-        window.location.reload();
-      } else {
-        toast.error('Error al actualizar el correo');
-      }
-    }
-  }, [business, emailPassword, newEmail, updateBusiness, user.businessId]);
+    const { data } = await supabase.auth.getUser()
+    if (!data.user?.email) return
 
-  const handleDeleteAccount = useCallback(() => {
+    // Reautenticación
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: data.user.email,
+      password: currentPassword
+    })
+
+    if (signInError) {
+      toast.error('Contraseña actual incorrecta')
+      return
+    }
+
+    // Cambio de contraseña
+    const { error } = await supabase.auth.updateUser({
+      password: newPassword
+    })
+
+    if (error) {
+      toast.error('No se pudo cambiar la contraseña')
+      return
+    }
+
+    toast.success('Contraseña actualizada')
+
+    setCurrentPassword('')
+    setNewPassword('')
+    setConfirmNewPassword('')
+    setShowPasswordForm(false)
+    setPasswordErrors({})
+  }, [currentPassword, newPassword, confirmNewPassword])
+
+
+  const handleChangeEmail = useCallback(async () => {
+    if (!newEmail || !emailPassword) return
+
+    const { data } = await supabase.auth.getUser()
+    if (!data.user?.email) return
+
+    // Reautenticar
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: data.user.email,
+      password: emailPassword
+    })
+
+    if (signInError) {
+      toast.error('Contraseña incorrecta')
+      return
+    }
+
+    // Cambiar email
+    const { error } = await supabase.auth.updateUser({
+      email: newEmail
+    })
+
+    if (error) {
+      toast.error('Error al cambiar email')
+      return
+    }
+
+    toast.success('Email actualizado. Revisa tu correo.')
+    setShowEmailForm(false)
+    setNewEmail('')
+    setEmailPassword('')
+  }, [newEmail, emailPassword])
+
+
+  const handleDeleteAccount = useCallback(async () => {
     if (deleteConfirmText !== user.businessName) {
-      toast.error('El nombre no coincide');
-      return;
+      toast.error('El nombre no coincide')
+      return
     }
 
-    try {
-      const stored = localStorage.getItem('feedbackflow_users');
-      if (stored) {
-        const businesses = JSON.parse(stored);
-        const filtered = businesses.filter((b: any) => b.id !== user.businessId);
-        localStorage.setItem('feedbackflow_users', JSON.stringify(filtered));
-      }
-      
-      localStorage.removeItem('feedbackflow_comments');
-      localStorage.removeItem(`feedbackflow_usage_${user.businessId}`);
-      onLogout();
-      toast.success('Cuenta eliminada permanentemente');
-    } catch (e) {
-      toast.error('Error al eliminar la cuenta');
+    const { error: businessError } = await supabase
+      .from('businesses')
+      .delete()
+      .eq('id', user.businessId)
+
+    if (businessError) {
+      toast.error('Error al eliminar negocio')
+      return
     }
-  }, [deleteConfirmText, user.businessId, user.businessName, onLogout]);
+
+    await supabase.auth.signOut()
+    toast.success('Cuenta eliminada')
+    onLogout()
+  }, [deleteConfirmText, user.businessName, user.businessId])
+
 
   const handleDeleteCommentClick = useCallback((commentId: string) => {
     setCommentToDelete(commentId);
@@ -2396,12 +2386,12 @@ export function DashboardPage({ user, onLogout, onNavigate, themeProps }: Dashbo
                     basic: '5.99€', 
                     pro: '9.99€'
                   };
-                  const isCurrent = selectedPlan === plan;
+                  const isCurrent = user.plan === plan;
                   
                   return (
                     <div 
                       key={plan}
-                      onClick={() => plan !== 'free' && handleChangePlan(plan)}
+                      // !! CORREGIR onClick={() => plan !== 'free' && handleChangePlan(plan)} 
                       className={`
                         p-4 rounded-lg border-2 cursor-pointer transition-all
                         ${isCurrent 

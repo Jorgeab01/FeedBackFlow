@@ -9,16 +9,15 @@ export interface Comment {
   businessId: string;
 }
 
+// Interfaz Business que coincide con la tabla de Supabase
 export interface Business {
   id: string;
   name: string;
-  ownerEmail: string;
-  ownerPassword: string;
-  description?: string;
-  createdAt: string;
+  owner_id: string;  // UUID del usuario en auth.users
   plan: PlanType;
-  planExpiresAt?: string;
-  isActive: boolean;
+  is_active: boolean;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface Plan {

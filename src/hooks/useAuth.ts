@@ -1,124 +1,220 @@
-import { useState, useCallback, useEffect } from 'react';
-import type { User, Business, PlanType } from '@/types';
-
-export const USERS_KEY = 'feedbackflow_users';
-const CURRENT_USER_KEY = 'feedbackflow_current_user';
-
-// Negocio demo inicial
-const DEMO_BUSINESS: Business = {
-  id: 'biz_123',
-  name: 'Restaurante El Sabor',
-  ownerEmail: 'demo@restaurante.com',
-  ownerPassword: '123456',
-  createdAt: new Date().toISOString(),
-  plan: 'pro',
-  isActive: true
-};
+import { useEffect, useState, useCallback, useRef } from 'react';
+import { supabase } from '@/lib/supabase';
+import type { User, PlanType } from '@/types';
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const isMountedRef = useRef(true);
+  const initRef = useRef(false);
 
-  useEffect(() => {
-    // Inicializar datos demo si no existen
-    const storedUsers = localStorage.getItem(USERS_KEY);
-    if (!storedUsers) {
-      localStorage.setItem(USERS_KEY, JSON.stringify([DEMO_BUSINESS]));
-    }
-
-    const storedUser = localStorage.getItem(CURRENT_USER_KEY);
-    if (storedUser) {
-      try {
-        const parsedUser = JSON.parse(storedUser);
-        setUser(parsedUser);
-        setIsAuthenticated(true);
-      } catch (e) {
-        localStorage.removeItem(CURRENT_USER_KEY);
-      }
-    }
-    setIsLoading(false);
+  const setAuthState = useCallback((nextUser: User | null) => {
+    if (!isMountedRef.current) return;
+    setUser(nextUser);
+    setIsAuthenticated(!!nextUser);
   }, []);
 
-  const login = useCallback(async (email: string, password: string): Promise<boolean> => {
-    const storedUsers = localStorage.getItem(USERS_KEY);
-    const businesses: Business[] = storedUsers ? JSON.parse(storedUsers) : [];
+  // 🧠 Cargar business + construir User
+  const hydrateUser = useCallback(async (userId: string, email: string): Promise<boolean> => {
+    console.log('[hydrateUser] Cargando business para userId:', userId);
     
-    const business = businesses.find(b => 
-      b.ownerEmail === email && b.ownerPassword === password && b.isActive
-    );
-    
-    if (business) {
-      const userData: User = {
-        id: business.id,
-        email: business.ownerEmail,
+    try {
+      const { data: business, error } = await supabase
+        .from('businesses')
+        .select('*')
+        .eq('owner_id', userId)
+        .maybeSingle();
+
+      console.log('[hydrateUser] Resultado:', { business, error });
+
+      if (error) {
+        console.error('[hydrateUser] Error:', error);
+        // Si es error de RLS o permisos, limpiar sesión
+        if (error.code === 'PGRST301' || error.code === '42501' || error.code === '404') {
+          console.error('[hydrateUser] Error de RLS - limpiando sesión');
+          await supabase.auth.signOut();
+        }
+        setAuthState(null);
+        return false;
+      }
+
+      if (!business) {
+        console.warn('[hydrateUser] No business encontrado para userId:', userId);
+        await supabase.auth.signOut();
+        setAuthState(null);
+        return false;
+      }
+
+      console.log('[hydrateUser] Business cargado:', business.name);
+      setAuthState({
+        id: userId,
+        email,
         businessId: business.id,
         businessName: business.name,
         plan: business.plan
-      };
-      setUser(userData);
-      setIsAuthenticated(true);
-      localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(userData));
+      });
       return true;
-    }
-    
-    return false;
-  }, []);
-
-  const logout = useCallback(() => {
-    setUser(null);
-    setIsAuthenticated(false);
-    localStorage.removeItem(CURRENT_USER_KEY);
-  }, []);
-
-  const register = useCallback(async (
-    businessName: string, 
-    email: string, 
-    password: string,
-    plan: PlanType
-  ): Promise<boolean> => {
-    const storedUsers = localStorage.getItem(USERS_KEY);
-    const businesses: Business[] = storedUsers ? JSON.parse(storedUsers) : [];
-    
-    // Verificar si el email ya existe
-    if (businesses.some(b => b.ownerEmail === email)) {
+    } catch (err: any) {
+      console.error('[hydrateUser] Excepción:', err?.message || err);
+      setAuthState(null);
       return false;
     }
+  }, [setAuthState]);
 
-    const newBusiness: Business = {
-      id: `biz_${Date.now()}`,
-      name: businessName,
-      ownerEmail: email,
-      ownerPassword: password,
-      createdAt: new Date().toISOString(),
-      plan,
-      isActive: true
+  // 🔁 Restaurar sesión al montar
+  useEffect(() => {
+    isMountedRef.current = true;
+    
+    // Evitar doble inicialización en StrictMode
+    if (initRef.current) return;
+    initRef.current = true;
+
+    const init = async () => {
+      try {
+        console.log('[useAuth] Inicializando, verificando sesión...');
+        const { data, error } = await supabase.auth.getSession();
+
+        if (error) {
+          console.error('[useAuth] Error getSession:', error);
+          setAuthState(null);
+          setIsLoading(false);
+          return;
+        }
+
+        console.log('[useAuth] Sesión:', data.session?.user?.id || 'No hay sesión');
+
+        if (data.session?.user) {
+          const success = await hydrateUser(data.session.user.id, data.session.user.email!);
+          console.log('[useAuth] hydrateUser resultado:', success);
+        } else {
+          setAuthState(null);
+        }
+      } catch (err) {
+        console.error('[useAuth] Error en init:', err);
+        setAuthState(null);
+      } finally {
+        if (isMountedRef.current) {
+          setIsLoading(false);
+        }
+      }
     };
 
-    businesses.push(newBusiness);
-    localStorage.setItem(USERS_KEY, JSON.stringify(businesses));
+    init();
 
-    // Auto-login después del registro
-    const userData: User = {
-      id: newBusiness.id,
-      email: newBusiness.ownerEmail,
-      businessId: newBusiness.id,
-      businessName: newBusiness.name,
-      plan: newBusiness.plan
+    // Escuchar cambios en el estado de autenticación
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      async (event: string, session: { user: { id: string; email?: string } } | null) => {
+        console.log('[useAuth] onAuthStateChange:', event, session?.user?.id);
+        
+        if (!isMountedRef.current) return;
+
+        try {
+          if (session?.user) {
+            await hydrateUser(session.user.id, session.user.email!);
+          } else {
+            setAuthState(null);
+          }
+        } catch (err) {
+          console.error('[useAuth] Error en onAuthStateChange:', err);
+          setAuthState(null);
+        } finally {
+          if (isMountedRef.current) {
+            setIsLoading(false);
+          }
+        }
+      }
+    );
+
+    return () => {
+      isMountedRef.current = false;
+      listener.subscription.unsubscribe();
     };
-    setUser(userData);
-    setIsAuthenticated(true);
-    localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(userData));
+  }, [hydrateUser, setAuthState]);
 
-    return true;
-  }, []);
+  // 🔐 LOGIN
+  const login = useCallback(async (email: string, password: string): Promise<boolean> => {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+
+      if (error) {
+        console.error('[login] Error:', error);
+        return false;
+      }
+
+      if (data.user) {
+        await hydrateUser(data.user.id, data.user.email!);
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.error('[login] Excepción:', err);
+      return false;
+    }
+  }, [hydrateUser]);
+
+  // 📝 REGISTER
+  const register = useCallback(
+    async (
+      businessName: string,
+      email: string,
+      password: string,
+      plan: PlanType
+    ): Promise<boolean> => {
+      try {
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password
+        });
+
+        if (error || !data.user) {
+          console.error('[register] Error signUp:', error);
+          return false;
+        }
+
+        // Crear business
+        const { error: businessError } = await supabase
+          .from('businesses')
+          .insert({
+            name: businessName,
+            plan,
+            is_active: true,
+            owner_id: data.user.id
+          });
+
+        if (businessError) {
+          console.error('[register] Error creando business:', businessError);
+          // Intentar limpiar el usuario creado
+          await supabase.auth.signOut();
+          return false;
+        }
+
+        // Hacer login automático después del registro
+        const loginSuccess = await login(email, password);
+        return loginSuccess;
+      } catch (err) {
+        console.error('[register] Excepción:', err);
+        return false;
+      }
+    },
+    [login]
+  );
+
+  // 🚪 LOGOUT
+  const logout = useCallback(async () => {
+    await supabase.auth.signOut();
+    setAuthState(null);
+  }, [setAuthState]);
 
   return {
     user,
     isAuthenticated,
     isLoading,
     login,
-    logout,
-    register
+    register,
+    logout
   };
 }

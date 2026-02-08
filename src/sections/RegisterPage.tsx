@@ -1,18 +1,33 @@
-import { useState } from 'react';
-import { motion } from 'framer-motion';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Store, ArrowLeft, ArrowRight, Check, Building2, Mail, Lock, AlertCircle } from 'lucide-react';
-import { ThemeToggle } from '@/components/ThemeToggle';
-import type { useTheme } from '@/hooks/useTheme';
-import { USERS_KEY } from '@/hooks/useAuth';
+import { useState } from 'react'
+import { motion } from 'framer-motion'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle
+} from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import {
+  Store,
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  Building2,
+  Mail,
+  Lock,
+  AlertCircle
+} from 'lucide-react'
+import { ThemeToggle } from '@/components/ThemeToggle'
+import type { useTheme } from '@/hooks/useTheme'
+import { toast } from 'sonner'
 
 interface RegisterPageProps {
   onNavigate: (path: string) => void;
-  onRegisterStep1: (businessName: string, email: string, password: string) => void;
+  onSetRegistrationData: (data: { businessName: string; email: string; password: string }) => void;
   themeProps: {
     theme: ReturnType<typeof useTheme>['theme'];
     setTheme: ReturnType<typeof useTheme>['setTheme'];
@@ -26,82 +41,56 @@ interface FormErrors {
   confirmPassword?: string;
 }
 
-export function RegisterPage({ onNavigate, onRegisterStep1, themeProps }: RegisterPageProps) {
-  const [businessName, setBusinessName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [errors, setErrors] = useState<FormErrors>({});
+export function RegisterPage({ onNavigate, onSetRegistrationData, themeProps }: RegisterPageProps) {
+  const [businessName, setBusinessName] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+  const [errors, setErrors] = useState<FormErrors>({})
 
-  const validateForm = (): boolean => {
-    const newErrors: FormErrors = {};
-    let isValid = true;
+  const validateForm = () => {
+    const newErrors: FormErrors = {}
 
-    // Validar nombre del negocio
-    if (!businessName.trim()) {
-      newErrors.businessName = 'El nombre del local es obligatorio';
-      isValid = false;
-    } else if (businessName.trim().length < 3) {
-      newErrors.businessName = 'El nombre debe tener al menos 3 caracteres';
-      isValid = false;
+    if (!businessName.trim() || businessName.trim().length < 3) {
+      newErrors.businessName = 'El nombre debe tener al menos 3 caracteres'
     }
 
-    // Validar email
-    if (!email.trim()) {
-      newErrors.email = 'El correo electrónico es obligatorio';
-      isValid = false;
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      newErrors.email = 'Introduce un correo válido';
-      isValid = false;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      newErrors.email = 'Introduce un correo válido'
     }
 
-    // Validar contraseña
-    if (!password) {
-      newErrors.password = 'La contraseña es obligatoria';
-      isValid = false;
-    } else if (password.length < 6) {
-      newErrors.password = 'La contraseña debe tener al menos 6 caracteres';
-      isValid = false;
+    if (password.length < 6) {
+      newErrors.password = 'La contraseña debe tener al menos 6 caracteres'
     }
 
-    // Validar confirmación
     if (password !== confirmPassword) {
-      newErrors.confirmPassword = 'Las contraseñas no coinciden';
-      isValid = false;
+      newErrors.confirmPassword = 'Las contraseñas no coinciden'
     }
 
-    setErrors(newErrors);
-    return isValid;
-  };
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
+  }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // Limpiar errores previos
-    setErrors({});
-    
-    if (!validateForm()) {
-      return;
-    }
+  const handleContinue = async (e: React.FormEvent) => {
+    e.preventDefault()
 
-    setIsLoading(true);
-    
-    // Verificar si el email ya existe
-    const storedUsers = localStorage.getItem(USERS_KEY);
-    const businesses = storedUsers ? JSON.parse(storedUsers) : [];
-    
-    if (businesses.some((b: any) => b.ownerEmail === email)) {
-      setErrors({ email: 'Este correo ya está registrado' });
-      setIsLoading(false);
-      return;
-    }
+    if (!validateForm()) return
 
-    // Guardar datos y pasar a selección de plan
-    onRegisterStep1(businessName, email, password);
-    onNavigate('/plans');
-    setIsLoading(false);
-  };
+    setIsLoading(true)
+
+    // Solo guardar los datos y navegar a planes
+    // El registro real se hará cuando seleccione un plan
+    onSetRegistrationData({
+      businessName: businessName.trim(),
+      email: email.trim(),
+      password
+    })
+
+    toast.success('¡Datos guardados!')
+    setIsLoading(false)
+    onNavigate('/plans')
+  }
 
   // Limpiar error al escribir
   const handleBusinessNameChange = (value: string) => {
@@ -164,7 +153,7 @@ export function RegisterPage({ onNavigate, onRegisterStep1, themeProps }: Regist
         Volver
       </Button>
 
-      {/* Badge de paso - FUERA de la card */}
+      {/* Badge de paso */}
       <motion.div 
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -199,7 +188,7 @@ export function RegisterPage({ onNavigate, onRegisterStep1, themeProps }: Regist
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-5">
+            <form onSubmit={handleContinue} className="space-y-5">
               {/* Nombre del local */}
               <div className="space-y-2">
                 <Label htmlFor="businessName" className="text-gray-700 dark:text-gray-200 font-medium flex items-center gap-2">

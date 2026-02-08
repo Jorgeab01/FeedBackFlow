@@ -23,6 +23,7 @@ function App() {
     password: string;
   } | null>(null);
 
+  // Sincronizar URL con estado
   useEffect(() => {
     const handlePopState = () => {
       setCurrentPath(window.location.pathname);
@@ -37,23 +38,26 @@ function App() {
     setCurrentPath(path);
   };
 
-  const handleRegisterStep1 = (businessName: string, email: string, password: string) => {
-    setRegistrationData({ businessName, email, password });
-  };
-
   const handleSelectPlan = async (plan: PlanType) => {
     if (registrationData) {
-      await register(registrationData.businessName, registrationData.email, registrationData.password, plan);
-      setRegistrationData(null);
+      const success = await register(
+        registrationData.businessName, 
+        registrationData.email, 
+        registrationData.password, 
+        plan
+      );
+      if (success) {
+        setRegistrationData(null);
+        navigate('/dashboard');
+      }
     }
   };
 
-  // Placeholder minimalista y elegante mientras carga
+  // Placeholder mientras carga
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 flex items-center justify-center">
         <div className="flex flex-col items-center gap-6">
-          {/* Logo animado con efecto de pulso */}
           <motion.div
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -77,7 +81,6 @@ function App() {
             </div>
           </motion.div>
 
-          {/* Texto con animación de puntos */}
           <div className="flex flex-col items-center gap-2">
             <h2 className="text-xl font-bold text-gray-900 dark:text-white">
               FeedbackFlow
@@ -108,7 +111,6 @@ function App() {
             </div>
           </div>
 
-          {/* Barra de progreso indeterminada */}
           <div className="w-48 h-1 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
             <motion.div
               animate={{ x: ["-100%", "100%"] }}
@@ -125,7 +127,7 @@ function App() {
     );
   }
 
-  // Ruta de feedback para clientes
+  // Ruta de feedback para clientes (pública, no requiere auth)
   if (currentPath.startsWith('/feedback/')) {
     const businessId = currentPath.split('/')[2];
     return (
@@ -136,13 +138,13 @@ function App() {
     );
   }
 
-  // Ruta de registro
+  // Página de registro
   if (currentPath === '/register') {
     return (
       <>
-        <RegisterPage 
-          onNavigate={navigate} 
-          onRegisterStep1={handleRegisterStep1}
+        <RegisterPage
+          onNavigate={navigate}
+          onSetRegistrationData={setRegistrationData}
           themeProps={themeProps}
         />
         <Toaster />
@@ -150,14 +152,22 @@ function App() {
     );
   }
 
-  // Ruta de planes
+  // Página de planes (requiere haber pasado por registro o estar autenticado)
   if (currentPath === '/plans') {
+    // Si está autenticado, puede cambiar de plan
+    // Si no está autenticado pero tiene registrationData, es flujo de registro
+    if (!isAuthenticated && !registrationData) {
+      navigate('/register');
+      return null;
+    }
+    
     return (
       <>
-        <PlansPage 
+        <PlansPage
           onNavigate={navigate}
           onSelectPlan={handleSelectPlan}
-          registrationData={registrationData}
+          isAuthenticated={isAuthenticated}
+          user={user}
           themeProps={themeProps}
         />
         <Toaster />
@@ -179,11 +189,15 @@ function App() {
     );
   }
 
+  if (!user) {
+    return null;
+  }
+
   // Usuario autenticado - mostrar dashboard
   return (
     <>
       <DashboardPage 
-        user={user!} 
+        user={user} 
         onLogout={logout}
         onNavigate={navigate}
         themeProps={themeProps}

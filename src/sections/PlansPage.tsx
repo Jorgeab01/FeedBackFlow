@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -8,58 +7,80 @@ import { Check, ArrowLeft, Sparkles, Zap, Crown, Star } from 'lucide-react';
 import { toast } from 'sonner';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import type { useTheme } from '@/hooks/useTheme';
-import type { PlanType } from '@/types';
+import type { PlanType, User } from '@/types';
+import { useState, useEffect } from 'react';
+import { supabase } from '@/lib/supabase'
 
 interface PlansPageProps {
   onNavigate: (path: string) => void;
   onSelectPlan: (plan: PlanType) => void;
-  registrationData: {
-    businessName: string;
-    email: string;
-    password: string;
-  } | null;
+  isAuthenticated: boolean;
+  user: User | null;
   themeProps: {
     theme: ReturnType<typeof useTheme>['theme'];
     setTheme: ReturnType<typeof useTheme>['setTheme'];
   };
 }
 
-export function PlansPage({ onNavigate, onSelectPlan, registrationData, themeProps }: PlansPageProps) {
-  const [selectedPlan, setSelectedPlan] = useState<PlanType | null>(null);
-  const [isYearly, setIsYearly] = useState(false);
+export function PlansPage({ onNavigate, onSelectPlan, isAuthenticated, user, themeProps }: PlansPageProps) {
+  const [isYearly, setIsYearly] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const [businessName, setBusinessName] = useState<string | null>(null)
 
-  if (!registrationData) {
-    onNavigate('/register');
-    return null;
+  // Si está autenticado, mostrar el nombre del negocio actual
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      setBusinessName(user.businessName)
+    }
+  }, [isAuthenticated, user])
+
+  // Elegir plan
+  const handleSelectPlan = async (plan: PlanType) => {
+    setIsLoading(true)
+
+    try {
+      if (isAuthenticated && user) {
+        // Usuario autenticado: actualizar plan existente
+        const { error } = await supabase
+          .from('businesses')
+          .update({ plan })
+          .eq('id', user.businessId)
+
+        if (error) {
+          toast.error('Error al actualizar el plan')
+          setIsLoading(false)
+          return
+        }
+
+        const messages = {
+          free: 'Plan gratuito activado',
+          basic: 'Plan Básico activado',
+          pro: 'Plan Pro activado'
+        }
+
+        toast.success(messages[plan])
+        onNavigate('/dashboard')
+      } else {
+        // Flujo de registro: delegar al App.tsx
+        await onSelectPlan(plan)
+      }
+    } catch (err) {
+      console.error('Error seleccionando plan:', err)
+      toast.error('Error al seleccionar el plan')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
-  const handleSelectPlan = async (plan: PlanType) => {
-    setSelectedPlan(plan);
-    
-    onSelectPlan(plan);
-    
-    const messages = {
-      free: { title: '¡Registro completado!', desc: 'Tu cuenta gratuita está lista.' },
-      basic: { title: '¡Bienvenido a Basic!', desc: 'Tu plan está activo.' },
-      pro: { title: '¡Bienvenido a Pro!', desc: 'Accede a todas las funciones avanzadas.' }
-    };
-    
-    toast.success(messages[plan].title, {
-      description: messages[plan].desc,
-    });
-    
-    onNavigate('/dashboard');
-  };
-
-  // Precios actualizados (más redondos)
+  // Precios
   const prices = {
     basic: { 
       monthly: 5.99, 
-      yearly: 4.79  // 20% descuento
+      yearly: 4.79
     },
     pro: { 
       monthly: 9.99, 
-      yearly: 7.99  // 20% descuento
+      yearly: 7.99
     },
   };
 
@@ -73,7 +94,7 @@ export function PlansPage({ onNavigate, onSelectPlan, registrationData, themePro
       {/* Back Button */}
       <Button
         variant="ghost"
-        onClick={() => onNavigate('/register')}
+        onClick={() => isAuthenticated ? onNavigate('/dashboard') : onNavigate('/register')}
         className="fixed top-4 left-4 gap-2 text-gray-600 dark:text-gray-300 z-50"
       >
         <ArrowLeft className="w-4 h-4" />
@@ -88,14 +109,19 @@ export function PlansPage({ onNavigate, onSelectPlan, registrationData, themePro
           className="text-center mb-8"
         >
           <Badge className="mb-4 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300">
-            Paso 2 de 2
+            {isAuthenticated ? 'Cambiar plan' : 'Paso 2 de 2'}
           </Badge>
           <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">
             Elige tu plan
           </h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-            Registrando: <span className="font-medium text-indigo-600 dark:text-indigo-400">{registrationData.businessName}</span>
-          </p>
+          {businessName && (
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+              {isAuthenticated ? 'Negocio:' : 'Registrando:'}{" "}
+              <span className="font-medium text-indigo-600 dark:text-indigo-400">
+                {businessName}
+              </span>
+            </p>
+          )}
         </motion.div>
 
         {/* Toggle Mensual/Anual */}
@@ -182,8 +208,13 @@ export function PlansPage({ onNavigate, onSelectPlan, registrationData, themePro
                   variant="outline" 
                   className="w-full border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 h-10 mt-auto"
                   onClick={() => handleSelectPlan('free')}
+                  disabled={isLoading}
                 >
-                  Empezar gratis
+                  {isLoading ? (
+                    <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    'Empezar gratis'
+                  )}
                 </Button>
               </CardContent>
             </Card>
@@ -251,8 +282,13 @@ export function PlansPage({ onNavigate, onSelectPlan, registrationData, themePro
                 <Button 
                   className="w-full bg-indigo-600 hover:bg-indigo-700 text-white h-10 mt-auto"
                   onClick={() => handleSelectPlan('basic')}
+                  disabled={isLoading}
                 >
-                  Elegir Básico
+                  {isLoading ? (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    'Elegir Básico'
+                  )}
                 </Button>
               </CardContent>
             </Card>
@@ -321,19 +357,23 @@ export function PlansPage({ onNavigate, onSelectPlan, registrationData, themePro
                   </li>
                 </ul>
 
-                {/* Botón normal sin prueba gratuita */}
                 <Button 
                   className="w-full bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-500 hover:to-amber-600 text-yellow-950 font-bold h-10 mt-auto shadow-lg hover:shadow-xl transition-all border-0"
                   onClick={() => handleSelectPlan('pro')}
+                  disabled={isLoading}
                 >
-                  Elegir Pro
+                  {isLoading ? (
+                    <div className="w-4 h-4 border-2 border-yellow-950 border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    'Elegir Pro'
+                  )}
                 </Button>
               </CardContent>
             </Card>
           </motion.div>
         </div>
 
-        {/* Frase de cierre - AHORA DENTRO DEL CONTENEDOR PRINCIPAL */}
+        {/* Frase de cierre */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -388,7 +428,7 @@ export function PlansPage({ onNavigate, onSelectPlan, registrationData, themePro
             </div>
           </div>
         </motion.div>
-      </div> {/* Cierre del contenedor principal */}
+      </div>
     </div>
   );
 }
