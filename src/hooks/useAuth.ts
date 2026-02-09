@@ -163,45 +163,60 @@ export function useAuth() {
       email: string,
       password: string,
       plan: PlanType
-    ): Promise<boolean> => {
+    ): Promise<void> => {
       try {
         const { data, error } = await supabase.auth.signUp({
           email,
           password
         });
 
-        if (error || !data.user) {
+        if (error) {
+          // Email ya registrado
+          if (
+            error.message.toLowerCase().includes('already') ||
+            error.status === 422
+          ) {
+            throw new Error('EMAIL_EXISTS');
+          }
+
           console.error('[register] Error signUp:', error);
-          return false;
+          throw new Error('REGISTER_FAILED');
         }
 
-        // Crear business
+        if (!data.user) {
+          throw new Error('REGISTER_FAILED');
+        }
+
+        // Crear business (plan elegido, listo para pagos futuros)
         const { error: businessError } = await supabase
           .from('businesses')
           .insert({
             name: businessName,
             plan,
             is_active: true,
-            owner_id: data.user.id
+            owner_id: data.user.id,
+            subscription_status: 'pending' // 🔐 preparado para pagos
           });
 
         if (businessError) {
           console.error('[register] Error creando business:', businessError);
-          // Intentar limpiar el usuario creado
-          await supabase.auth.signOut();
-          return false;
+
+          // ⚠️ NO cerramos sesión aquí: el usuario existe
+          // El business se puede reintentar crear o reparar
+          throw new Error('BUSINESS_CREATE_FAILED');
         }
 
-        // Hacer login automático después del registro
-        const loginSuccess = await login(email, password);
-        return loginSuccess;
+        // ✅ NO hacemos login manual
+        // Supabase ya crea la sesión automáticamente
+        return;
       } catch (err) {
         console.error('[register] Excepción:', err);
-        return false;
+        throw err; // ⬅️ propagamos el error a App.tsx
       }
     },
-    [login]
+    []
   );
+
 
   // 🚪 LOGOUT
   const logout = useCallback(async () => {

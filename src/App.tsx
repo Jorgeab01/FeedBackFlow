@@ -10,6 +10,7 @@ import { Toaster } from '@/components/ui/sonner';
 import { MessageSquare } from 'lucide-react';
 import { motion } from 'framer-motion';
 import type { PlanType } from '@/types';
+import { toast } from 'sonner';
 
 function App() {
   const [currentPath, setCurrentPath] = useState(window.location.pathname);
@@ -39,19 +40,35 @@ function App() {
   };
 
   const handleSelectPlan = async (plan: PlanType) => {
-    if (registrationData) {
-      const success = await register(
-        registrationData.businessName, 
-        registrationData.email, 
-        registrationData.password, 
+    if (!registrationData) return;
+
+    try {
+      await register(
+        registrationData.businessName,
+        registrationData.email,
+        registrationData.password,
         plan
       );
-      if (success) {
+
+      setRegistrationData(null);
+      navigate('/dashboard');
+
+    } catch (err: any) {
+      if (err.message === 'EMAIL_EXISTS') {
+        toast.error('Este correo ya está registrado', {
+          description: 'Inicia sesión para continuar'
+        });
+
         setRegistrationData(null);
-        navigate('/dashboard');
+        navigate('/login');
+      } else {
+        console.error(err);
+        toast.error('No se pudo crear la cuenta');
       }
     }
   };
+
+
 
   // Placeholder mientras carga
   if (isLoading) {
