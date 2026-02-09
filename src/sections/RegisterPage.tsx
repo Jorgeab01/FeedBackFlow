@@ -3,6 +3,8 @@ import { motion } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { supabase } from '@/lib/supabase'
+
 import {
   Card,
   CardContent,
@@ -41,6 +43,7 @@ interface FormErrors {
   confirmPassword?: string;
 }
 
+
 export function RegisterPage({ onNavigate, onSetRegistrationData, themeProps }: RegisterPageProps) {
   const [businessName, setBusinessName] = useState('')
   const [email, setEmail] = useState('')
@@ -72,6 +75,22 @@ export function RegisterPage({ onNavigate, onSetRegistrationData, themeProps }: 
     return Object.keys(newErrors).length === 0
   }
 
+  // Verificar si el email ya existe en la base de datos
+  const checkEmailExists = async (email: string) => {
+    const { data, error } = await supabase
+      .from('businesses')
+      .select('email')
+      .eq('email', email.trim().toLowerCase())
+      .maybeSingle()
+    
+    if (error && error.code === 'PGRST116') {
+      // No se encontró el email (es bueno, significa que no existe)
+      return false
+    }
+    
+    return !!data
+  }
+
   const handleContinue = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -79,18 +98,49 @@ export function RegisterPage({ onNavigate, onSetRegistrationData, themeProps }: 
 
     setIsLoading(true)
 
-    // Solo guardar los datos y navegar a planes
-    // El registro real se hará cuando seleccione un plan
-    onSetRegistrationData({
-      businessName: businessName.trim(),
-      email: email.trim(),
-      password
-    })
+    try {
+      // Verificar si el email ya está registrado
+      const emailExists = await checkEmailExists(email)
+      
+      if (emailExists) {
+        toast.error('Este correo ya está registrado', {
+          description: '¿Quieres iniciar sesión con esta cuenta?',
+          duration: 6000,
+          action: {
+            label: 'Ir a Login',
+            onClick: () => onNavigate('/login')
+          },
+          cancel: {
+            label: 'Cerrar',
+            onClick: () => {}
+          }
+        })
+        setIsLoading(false)
+        return
+      }
 
-    toast.success('¡Datos guardados!')
-    setIsLoading(false)
-    onNavigate('/plans')
+      // Si no existe, continuar con el registro
+      onSetRegistrationData({
+        businessName: businessName.trim(),
+        email: email.trim(),
+        password
+      })
+
+      toast.success('¡Datos guardados!', {
+        description: 'Ahora elige tu plan'
+      })
+      
+      onNavigate('/plans')
+    } catch (error) {
+      console.error('Error verificando email:', error)
+      toast.error('Error al verificar el correo', {
+        description: 'Intenta de nuevo en unos momentos'
+      })
+    } finally {
+      setIsLoading(false)
+    }
   }
+
 
   // Limpiar error al escribir
   const handleBusinessNameChange = (value: string) => {

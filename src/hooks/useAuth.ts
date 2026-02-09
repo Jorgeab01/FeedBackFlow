@@ -141,7 +141,26 @@ export function useAuth() {
       });
 
       if (error) {
-        console.error('[login] Error:', error);
+        // Errores esperados de negocio - no son bugs, son validaciones
+        const expectedErrors = [
+          'Invalid login credentials',
+          'Email not confirmed',
+          'User not found',
+          'Invalid email or password'
+        ];
+        
+        const isExpectedError = expectedErrors.some(expected => 
+          error.message?.includes(expected)
+        );
+
+        if (isExpectedError) {
+          // Silencioso o warn para no alarmar en la consola
+          console.warn(`[login] Intento fallido: ${error.message}`);
+        } else {
+          // Errores técnicos reales (problemas de red, servidor, etc.)
+          console.error('[login] Error técnico:', error);
+        }
+        
         return false;
       }
 
@@ -150,8 +169,10 @@ export function useAuth() {
         return true;
       }
       return false;
+      
     } catch (err) {
-      console.error('[login] Excepción:', err);
+      // Errores de código/excepciones (no de la API)
+      console.error('[login] Excepción inesperada:', err);
       return false;
     }
   }, [hydrateUser]);
@@ -163,31 +184,19 @@ export function useAuth() {
       email: string,
       password: string,
       plan: PlanType
-    ): Promise<void> => {
+    ): Promise<boolean> => {
       try {
         const { data, error } = await supabase.auth.signUp({
           email,
           password
         });
 
-        if (error) {
-          // Email ya registrado
-          if (
-            error.message.toLowerCase().includes('already') ||
-            error.status === 422
-          ) {
-            throw new Error('EMAIL_EXISTS');
-          }
-
+        if (error || !data.user) {
           console.error('[register] Error signUp:', error);
-          throw new Error('REGISTER_FAILED');
+          return false;
         }
 
-        if (!data.user) {
-          throw new Error('REGISTER_FAILED');
-        }
-
-        // Crear business (plan elegido, listo para pagos futuros)
+        // Crear business
         const { error: businessError } = await supabase
           .from('businesses')
           .insert({
@@ -195,28 +204,26 @@ export function useAuth() {
             plan,
             is_active: true,
             owner_id: data.user.id,
-            subscription_status: 'pending' // 🔐 preparado para pagos
+            email: email
           });
 
         if (businessError) {
           console.error('[register] Error creando business:', businessError);
-
-          // ⚠️ NO cerramos sesión aquí: el usuario existe
-          // El business se puede reintentar crear o reparar
-          throw new Error('BUSINESS_CREATE_FAILED');
+          // Intentar limpiar el usuario creado
+          await supabase.auth.signOut();
+          return false;
         }
 
-        // ✅ NO hacemos login manual
-        // Supabase ya crea la sesión automáticamente
-        return;
+        // Hacer login automático después del registro
+        const loginSuccess = await login(email, password);
+        return loginSuccess;
       } catch (err) {
         console.error('[register] Excepción:', err);
-        throw err; // ⬅️ propagamos el error a App.tsx
+        return false;
       }
     },
-    []
+    [login]
   );
-
 
   // 🚪 LOGOUT
   const logout = useCallback(async () => {
