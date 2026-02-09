@@ -1104,38 +1104,59 @@ export function DashboardPage({ user, onLogout, onNavigate: _onNavigate, themePr
         animate={{ y: 0, opacity: 1 }}
         className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 sticky top-0 z-40"
       >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-xl flex items-center justify-center">
-                <MessageSquare className="w-5 h-5 text-white" />
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-14 sm:h-16 gap-2">
+            {/* Logo y nombre - más compacto en móvil */}
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-shrink-0">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-xl flex items-center justify-center flex-shrink-0">
+                <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
               </div>
-              <div>
-                <h1 className="text-xl font-bold text-gray-900 dark:text-white">FeedbackFlow</h1>
-                <p className="text-xs text-gray-500 dark:text-gray-400">{user.businessName}</p>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <h1 className="text-base sm:text-xl font-bold text-gray-900 dark:text-white truncate">FeedbackFlow</h1>
+                  {/* Badge solo en desktop o muy pequeño en móvil */}
+                  <div className="hidden sm:block">
+                    {getPlanBadge()}
+                  </div>
+                </div>
+                <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 truncate max-w-[120px] sm:max-w-[200px]">
+                  {user.businessName}
+                </p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="mr-4">
-                {getPlanBadge()}
+
+            {/* Acciones derecha - más compactas en móvil */}
+            <div className="flex items-center gap-1 sm:gap-3 flex-shrink-0">
+              {/* Badge en móvil (solo el plan sin texto "Plan") */}
+              <div className="sm:hidden">
+                <Badge className={`text-[10px] px-1.5 py-0.5 ${
+                  user.plan === 'free' ? 'bg-gray-100 text-gray-700' :
+                  user.plan === 'basic' ? 'bg-blue-100 text-blue-700' :
+                  'bg-amber-100 text-amber-700'
+                }`}>
+                  {user.plan === 'free' ? 'Gratis' : user.plan === 'basic' ? 'Básico' : 'Pro'}
+                </Badge>
               </div>
               
-              {/* Indicador de uso */}
+              {/* Indicador de uso - solo en desktop */}
               {!isPro && (
-                <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-gray-800 rounded-lg">
-                  <div className="w-24 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-gray-800 rounded-lg">
+                  <div className="w-16 xl:w-24 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                     <div 
                       className={`h-full transition-all ${percentage >= 90 ? 'bg-red-500' : percentage >= 70 ? 'bg-amber-500' : 'bg-green-500'}`}
                       style={{ width: `${percentage}%` }}
                     />
                   </div>
-                  <span className="text-xs text-gray-600 dark:text-gray-400">
+                  <span className="text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">
                     {remaining}
                   </span>
                 </div>
               )}
               
-              <span className="text-sm text-gray-600 dark:text-gray-300 hidden sm:inline">{user.email}</span>
+              {/* Email - solo en desktop grande */}
+              <span className="text-sm text-gray-600 dark:text-gray-300 hidden xl:inline truncate max-w-[150px]">
+                {user.email}
+              </span>
               
               <ThemeToggle theme={themeProps.theme} setTheme={themeProps.setTheme} />
 
@@ -1143,18 +1164,19 @@ export function DashboardPage({ user, onLogout, onNavigate: _onNavigate, themePr
                 variant="outline"
                 size="icon"
                 onClick={() => setShowSettings(true)}
-                className="dark:border-gray-600 dark:text-gray-300"
+                className="dark:border-gray-600 dark:text-gray-300 h-8 w-8 sm:h-9 sm:w-9"
                 title="Ajustes"
               >
                 <Settings className="w-4 h-4" />
               </Button>
+              
               <Button
                 variant="outline"
                 onClick={onLogout}
-                className="gap-2 dark:border-gray-600 dark:text-gray-300 h-9"
+                className="gap-2 dark:border-gray-600 dark:text-gray-300 h-8 sm:h-9 px-2 sm:px-4"
               >
                 <LogOut className="w-4 h-4" />
-                <span className="hidden sm:inline">Cerrar sesión</span>
+                <span className="hidden sm:inline text-sm">Cerrar sesión</span>
               </Button>
             </div>
           </div>
