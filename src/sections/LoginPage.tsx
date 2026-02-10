@@ -35,14 +35,14 @@ export function LoginPage({ onLogin, themeProps }: LoginPageProps) {
       toast.success('¡Bienvenido!', {
         description: 'Has iniciado sesión correctamente.',
       });
-      navigate('/dashboard')
+      // No necesitas navigate aquí - PublicRoute redirige automáticamente
+      // cuando isAuthenticated cambie a true
     } else {
       toast.error('Error de inicio de sesión', {
         description: 'Email o contraseña incorrectos.',
       });
+      setIsLoading(false);
     }
-    
-    setIsLoading(false);
   };
 
   const features = [

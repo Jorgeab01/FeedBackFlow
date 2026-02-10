@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate, useNavigate, useParams } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 import { LoginPage } from '@/sections/LoginPage';
 import { RegisterPage } from '@/sections/RegisterPage';
@@ -13,16 +13,6 @@ import { Toaster } from '@/components/ui/sonner';
 import type { PlanType } from '@/types';
 import { toast } from 'sonner';
 
-// 🔐 Guard de rutas privadas
-function PrivateRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, isLoading } = useAuth();
-
-  if (isLoading) return null;
-  if (!isAuthenticated) return <Navigate to="/login" replace />;
-
-  return children;
-}
-
 // 🌍 Feedback público
 function FeedbackRoute() {
   const { businessId } = useParams<{ businessId: string }>();
@@ -30,17 +20,25 @@ function FeedbackRoute() {
   return <FeedbackPage businessId={businessId} />;
 }
 
+function PrivateRoute({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, isLoading } = useAuth();
+  if (isLoading) return null;
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  return children;
+}
+
+// 🔓 NUEVO: Guard para rutas públicas
+function PublicRoute({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, isLoading } = useAuth();
+  if (isLoading) return null;
+  if (isAuthenticated) return <Navigate to="/dashboard" replace />;
+  return children;
+}
+
 export default function App() {
   const { user, isAuthenticated, isLoading, login, logout, register } = useAuth();
   const themeProps = useTheme();
   const navigate = useNavigate();
-
-  // 🔁 Redirección post-login
-  useEffect(() => {
-    if (!isLoading && isAuthenticated) {
-      navigate('/dashboard', { replace: true });
-    }
-  }, [isLoading, isAuthenticated, navigate]);
 
   // Flujo de registro
   const [registrationData, setRegistrationData] = useState<{
@@ -81,67 +79,65 @@ export default function App() {
   return (
     <>
       <Routes>
-        {/* 🌍 Pública */}
+        {/* 🌍 Pública - siempre accesible */}
         <Route path="/feedback/:businessId" element={<FeedbackRoute />} />
 
-        {/* 🔓 No autenticado */}
-        {!isAuthenticated && (
-          <>
-            <Route
-              path="/login"
-              element={
-                <LoginPage
-                  onLogin={login}
-                  themeProps={themeProps}
-                />
-              }
-            />
-            <Route
-              path="/register"
-              element={
-                <RegisterPage
-                  onSetRegistrationData={setRegistrationData}
-                  themeProps={themeProps}
-                />
-              }
-            />
-            <Route path="*" element={<Navigate to="/login" replace />} />
-          </>
-        )}
+        {/* 🔓 Rutas públicas protegidas */}
+        <Route
+          path="/login"
+          element={
+            <PublicRoute>
+              <LoginPage onLogin={login} themeProps={themeProps} />
+            </PublicRoute>
+          }
+        />
+        <Route
+          path="/register"
+          element={
+            <PublicRoute>
+              <RegisterPage 
+                onSetRegistrationData={setRegistrationData} 
+                themeProps={themeProps} 
+              />
+            </PublicRoute>
+          }
+        />
 
-        {/* 🔐 Autenticado */}
-        {isAuthenticated && user && (
-          <>
-            <Route
-              path="/dashboard"
-              element={
-                <PrivateRoute>
-                  <DashboardPage
-                    user={user}
-                    onLogout={logout}
-                    themeProps={themeProps}
-                  />
-                </PrivateRoute>
-              }
-            />
+        {/* 🔐 Rutas privadas */}
+        <Route
+          path="/dashboard"
+          element={
+            <PrivateRoute>
+              <DashboardPage
+                user={user!}
+                onLogout={logout}
+                themeProps={themeProps}
+              />
+            </PrivateRoute>
+          }
+        />
 
-            <Route
-              path="/plans"
-              element={
-                <PrivateRoute>
-                  <PlansPage
-                    onSelectPlan={handleSelectPlan}
-                    isAuthenticated={isAuthenticated}
-                    user={user}
-                    themeProps={themeProps}
-                  />
-                </PrivateRoute>
-              }
-            />
+        <Route
+          path="/plans"
+          element={
+            <PrivateRoute>
+              <PlansPage
+                onSelectPlan={handleSelectPlan}
+                isAuthenticated={true}
+                user={user!}
+                themeProps={themeProps}
+              />
+            </PrivateRoute>
+          }
+        />
 
-            <Route path="*" element={<Navigate to="/dashboard" replace />} />
-          </>
-        )}
+        {/* Fallback según estado */}
+        <Route 
+          path="*" 
+          element={
+            <Navigate to={isAuthenticated ? "/dashboard" : "/login"} replace />
+          } 
+        />
       </Routes>
 
       <Toaster />
