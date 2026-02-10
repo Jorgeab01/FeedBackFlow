@@ -37,6 +37,7 @@ export function LoginPage({ onLogin, themeProps }: LoginPageProps) {
       });
       // No necesitas navigate aquí - PublicRoute redirige automáticamente
       // cuando isAuthenticated cambie a true
+      navigate('/dashboard', { replace: true });
     } else {
       toast.error('Error de inicio de sesión', {
         description: 'Email o contraseña incorrectos.',
