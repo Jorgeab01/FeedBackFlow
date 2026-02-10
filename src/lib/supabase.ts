@@ -29,7 +29,7 @@ try {
   throw new Error('VITE_SUPABASE_URL debe ser una URL válida');
 }
 
-// Crear cliente con configuración optimizada
+// Crear cliente con configuración optimizada y TIMEOUTS EXTENDIDOS
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: true,
@@ -42,6 +42,21 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   global: {
     headers: {
       'X-Client-Info': 'feedbackflow-web'
+    },
+    // ⚡ CLAVE: Aumentar timeout de fetch a 30 segundos
+    fetch: (url, options = {}) => {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => {
+        console.warn('[Supabase] Timeout de 30s alcanzado para:', url);
+        controller.abort();
+      }, 30000); // 30 segundos
+
+      return fetch(url, {
+        ...options,
+        signal: controller.signal,
+      }).finally(() => {
+        clearTimeout(timeoutId);
+      });
     }
   },
   db: {
@@ -57,4 +72,5 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 // Log de inicialización exitosa
 if (import.meta.env.DEV) {
   console.log('✅ Cliente de Supabase inicializado correctamente');
+  console.log('⏱️ Timeout configurado: 30 segundos');
 }
