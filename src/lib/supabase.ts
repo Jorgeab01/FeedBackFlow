@@ -1,11 +1,60 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Temporal para debug - reemplaza con tus valores reales
-const url = import.meta.env.VITE_SUPABASE_URL || 'https://mdfwmnhdhbpydjjhbgxl.supabase.co';
-const key = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1kZndtbmhkaGJweWRqamhiZ3hsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA0MjgzMjAsImV4cCI6MjA4NjAwNDMyMH0.yRYBbaSOfQcSdE74sb5sUO2f2eC-LI--mgWkabSnmmA';
+// Obtener variables de entorno
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-if (!url || !key) {
-  throw new Error('Variables de entorno faltantes');
+// Logging para debug (solo en desarrollo)
+if (import.meta.env.DEV) {
+  console.log('[Supabase Config] URL:', supabaseUrl ? '✓ Configurada' : '✗ Faltante');
+  console.log('[Supabase Config] Key:', supabaseAnonKey ? '✓ Configurada' : '✗ Faltante');
 }
 
-export const supabase = createClient(url, key);
+// Validación estricta
+if (!supabaseUrl) {
+  console.error('❌ VITE_SUPABASE_URL no está definida');
+  throw new Error('Falta la variable de entorno VITE_SUPABASE_URL');
+}
+
+if (!supabaseAnonKey) {
+  console.error('❌ VITE_SUPABASE_ANON_KEY no está definida');
+  throw new Error('Falta la variable de entorno VITE_SUPABASE_ANON_KEY');
+}
+
+// Validar formato de URL
+try {
+  new URL(supabaseUrl);
+} catch (e) {
+  console.error('❌ VITE_SUPABASE_URL no es una URL válida:', supabaseUrl);
+  throw new Error('VITE_SUPABASE_URL debe ser una URL válida');
+}
+
+// Crear cliente con configuración optimizada
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+    storage: window.localStorage,
+    storageKey: 'feedbackflow-auth',
+    flowType: 'pkce'
+  },
+  global: {
+    headers: {
+      'X-Client-Info': 'feedbackflow-web'
+    }
+  },
+  db: {
+    schema: 'public'
+  },
+  realtime: {
+    params: {
+      eventsPerSecond: 10
+    }
+  }
+});
+
+// Log de inicialización exitosa
+if (import.meta.env.DEV) {
+  console.log('✅ Cliente de Supabase inicializado correctamente');
+}
