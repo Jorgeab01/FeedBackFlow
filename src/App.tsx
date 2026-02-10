@@ -17,6 +17,12 @@ function App() {
   const { user, isAuthenticated, isLoading, login, logout, register } = useAuth();
   const themeProps = useTheme();
   
+  useEffect(() => {
+    if (!isLoading && isAuthenticated) {
+      navigate('/dashboard');
+    }
+  }, [isLoading, isAuthenticated]);
+
   // Estado para el flujo de registro
   const [registrationData, setRegistrationData] = useState<{
     businessName: string;
