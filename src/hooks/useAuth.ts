@@ -15,44 +15,46 @@ export function useAuth() {
     setIsAuthenticated(!!nextUser);
   }, []);
 
-  // 🧠 Cargar business + construir User
+  // 🧠 Cargar business + construir User - VERSIÓN ULTRA SIMPLE
   const hydrateUser = useCallback(async (userId: string, email: string): Promise<boolean> => {
-    console.log('[hydrateUser] Cargando business para userId:', userId);
+    console.log('[hydrateUser] 🚀 Iniciando para userId:', userId);
     
     try {
+      console.log('[hydrateUser] 📡 Ejecutando query a businesses...');
+      
+      // Query DIRECTA sin timeouts ni race conditions
       const { data: business, error } = await supabase
         .from('businesses')
-        .select('*')
+        .select('id, name, plan, owner_id, email, is_active')
         .eq('owner_id', userId)
-        .maybeSingle();
+        .single(); // Usamos single() en vez de maybeSingle() para detectar si no existe
 
-      console.log('[hydrateUser] Resultado:', { business, error });
+      console.log('[hydrateUser] 📦 Respuesta recibida');
+      console.log('[hydrateUser] Data:', business);
+      console.log('[hydrateUser] Error:', error);
 
       if (error) {
-        console.error('[hydrateUser] Error:', error);
-        // Si es error de RLS o permisos, limpiar sesión
-        if (error.code === 'PGRST301' || error.code === '42501' || error.code === '404') {
-          console.error('[hydrateUser] Error de RLS - limpiando sesión');
-          await supabase.auth.signOut();
-        }
+        console.error('[hydrateUser] ❌ Error al cargar business:', {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint
+        });
+        
         setAuthState(null);
-        if (isMountedRef.current) {
-          setIsLoading(false);
-        }
+        setIsLoading(false);
         return false;
       }
 
       if (!business) {
-        console.warn('[hydrateUser] No business encontrado para userId:', userId);
-        await supabase.auth.signOut();
+        console.warn('[hydrateUser] ⚠️ Business es null');
         setAuthState(null);
-        if (isMountedRef.current) {
-          setIsLoading(false);
-        }
+        setIsLoading(false);
         return false;
       }
 
-      console.log('[hydrateUser] Business cargado:', business.name);
+      console.log('[hydrateUser] ✅ Business cargado:', business.name);
+      
       setAuthState({
         id: userId,
         email,
@@ -60,16 +62,16 @@ export function useAuth() {
         businessName: business.name,
         plan: business.plan
       });
-      if (isMountedRef.current) {
-        setIsLoading(false);
-      }
+      
+      setIsLoading(false);
       return true;
+      
     } catch (err: any) {
-      console.error('[hydrateUser] Excepción:', err?.message || err);
+      console.error('[hydrateUser] 💥 Excepción capturada:', err);
+      console.error('[hydrateUser] Stack:', err.stack);
+      
       setAuthState(null);
-      if (isMountedRef.current) {
-        setIsLoading(false);
-      }
+      setIsLoading(false);
       return false;
     }
   }, [setAuthState]);
@@ -78,48 +80,37 @@ export function useAuth() {
   useEffect(() => {
     isMountedRef.current = true;
     
-    // Evitar doble inicialización en StrictMode
     if (initRef.current) return;
     initRef.current = true;
 
     const init = async () => {
-      // Timeout de seguridad: si después de 10 segundos sigue cargando, forzar finalización
-      const timeoutId = setTimeout(() => {
-        console.warn('[useAuth] Timeout alcanzado - forzando fin de carga');
-        if (isMountedRef.current) {
-          setAuthState(null);
-          setIsLoading(false);
-        }
-      }, 10000);
-
       try {
-        console.log('[useAuth] Inicializando, verificando sesión...');
+        console.log('[useAuth] 🚀 Inicializando autenticación...');
+        
         const { data, error } = await supabase.auth.getSession();
 
         if (error) {
-          console.error('[useAuth] Error getSession:', error);
+          console.error('[useAuth] ❌ Error en getSession:', error);
           setAuthState(null);
           setIsLoading(false);
-          clearTimeout(timeoutId);
           return;
         }
 
-        console.log('[useAuth] Sesión:', data.session?.user?.id || 'No hay sesión');
+        console.log('[useAuth] 📋 Sesión obtenida:', data.session?.user?.id || 'sin sesión');
 
         if (data.session?.user) {
-          const success = await hydrateUser(data.session.user.id, data.session.user.email!);
-          console.log('[useAuth] hydrateUser resultado:', success);
+          console.log('[useAuth] 👤 Usuario encontrado, hidratando...');
+          await hydrateUser(data.session.user.id, data.session.user.email!);
         } else {
+          console.log('[useAuth] ℹ️ No hay sesión activa');
           setAuthState(null);
-        }
-      } catch (err) {
-        console.error('[useAuth] Error en init:', err);
-        setAuthState(null);
-      } finally {
-        clearTimeout(timeoutId);
-        if (isMountedRef.current) {
           setIsLoading(false);
         }
+        
+      } catch (err) {
+        console.error('[useAuth] 💥 Error en init:', err);
+        setAuthState(null);
+        setIsLoading(false);
       }
     };
 
@@ -128,7 +119,7 @@ export function useAuth() {
     // Escuchar cambios en el estado de autenticación
     const { data: listener } = supabase.auth.onAuthStateChange(
       async (event: string, session: { user: { id: string; email?: string } } | null) => {
-        console.log('[useAuth] onAuthStateChange:', event, session?.user?.id);
+        console.log('[useAuth] 🔔 Auth event:', event, session?.user?.id || 'sin usuario');
         
         if (!isMountedRef.current) return;
 
@@ -137,19 +128,18 @@ export function useAuth() {
             await hydrateUser(session.user.id, session.user.email!);
           } else {
             setAuthState(null);
-          }
-        } catch (err) {
-          console.error('[useAuth] Error en onAuthStateChange:', err);
-          setAuthState(null);
-        } finally {
-          if (isMountedRef.current) {
             setIsLoading(false);
           }
+        } catch (err) {
+          console.error('[useAuth] ❌ Error en onAuthStateChange:', err);
+          setAuthState(null);
+          setIsLoading(false);
         }
       }
     );
 
     return () => {
+      console.log('[useAuth] 🧹 Cleanup');
       isMountedRef.current = false;
       listener.subscription.unsubscribe();
     };
@@ -157,6 +147,8 @@ export function useAuth() {
 
   // 🔐 LOGIN
   const login = useCallback(async (email: string, password: string): Promise<boolean> => {
+    console.log('[login] 🔐 Intentando login:', email);
+    
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -164,38 +156,20 @@ export function useAuth() {
       });
 
       if (error) {
-        // Errores esperados de negocio - no son bugs, son validaciones
-        const expectedErrors = [
-          'Invalid login credentials',
-          'Email not confirmed',
-          'User not found',
-          'Invalid email or password'
-        ];
-        
-        const isExpectedError = expectedErrors.some(expected => 
-          error.message?.includes(expected)
-        );
-
-        if (isExpectedError) {
-          // Silencioso o warn para no alarmar en la consola
-          console.warn(`[login] Intento fallido: ${error.message}`);
-        } else {
-          // Errores técnicos reales (problemas de red, servidor, etc.)
-          console.error('[login] Error técnico:', error);
-        }
-        
+        console.warn('[login] ⚠️ Login fallido:', error.message);
         return false;
       }
 
       if (data.user) {
+        console.log('[login] ✅ Login exitoso');
         await hydrateUser(data.user.id, data.user.email!);
         return true;
       }
+      
       return false;
       
     } catch (err) {
-      // Errores de código/excepciones (no de la API)
-      console.error('[login] Excepción inesperada:', err);
+      console.error('[login] 💥 Excepción:', err);
       return false;
     }
   }, [hydrateUser]);
@@ -208,6 +182,8 @@ export function useAuth() {
       password: string,
       plan: PlanType
     ): Promise<boolean> => {
+      console.log('[register] 📝 Registrando:', { businessName, email, plan });
+      
       try {
         const { data, error } = await supabase.auth.signUp({
           email,
@@ -215,11 +191,12 @@ export function useAuth() {
         });
 
         if (error || !data.user) {
-          console.error('[register] Error signUp:', error);
+          console.error('[register] ❌ Error en signUp:', error);
           return false;
         }
 
-        // Crear business
+        console.log('[register] ✅ Usuario creado, creando business...');
+
         const { error: businessError } = await supabase
           .from('businesses')
           .insert({
@@ -231,17 +208,17 @@ export function useAuth() {
           });
 
         if (businessError) {
-          console.error('[register] Error creando business:', businessError);
-          // Intentar limpiar el usuario creado
+          console.error('[register] ❌ Error creando business:', businessError);
           await supabase.auth.signOut();
           return false;
         }
 
-        // Hacer login automático después del registro
+        console.log('[register] ✅ Business creado, haciendo login...');
         const loginSuccess = await login(email, password);
         return loginSuccess;
+        
       } catch (err) {
-        console.error('[register] Excepción:', err);
+        console.error('[register] 💥 Excepción:', err);
         return false;
       }
     },
@@ -250,6 +227,7 @@ export function useAuth() {
 
   // 🚪 LOGOUT
   const logout = useCallback(async () => {
+    console.log('[logout] 🚪 Cerrando sesión...');
     await supabase.auth.signOut();
     setAuthState(null);
   }, [setAuthState]);
