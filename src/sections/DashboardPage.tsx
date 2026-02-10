@@ -171,39 +171,44 @@ function useMonthlyUsage(businessId: string, plan: PlanType) {
   const limits = PLAN_LIMITS[plan];
 
   const fetchUsage = useCallback(async () => {
-    if (!businessId) {
-      setIsLoading(false);
-      return;
-    }
+  if (!businessId) {
+    setIsLoading(false);
+    return;
+  }
 
-    const currentDate = new Date();
-    const year = currentDate.getFullYear();
-    const month = currentDate.getMonth() + 1; // PostgreSQL usa 1-12
+  const currentDate = new Date();
+  const year = currentDate.getFullYear();
+  const month = currentDate.getMonth() + 1; // 1-12 para PostgreSQL
 
-    try {
-      const { data, error } = await supabase
-        .from('monthly_usage')
-        .select('comment_count')
-        .eq('business_id', businessId)
-        .eq('year', year)
-        .eq('month', month)
-        .single();
+  try {
+    // Usar maybeSingle() en lugar de single() para evitar error si no existe
+    const { data, error } = await supabase
+      .from('monthly_usage')
+      .select('comment_count')
+      .eq('business_id', businessId)
+      .eq('year', year)
+      .eq('month', month)
+      .maybeSingle(); // ✅ No da error 406 si no hay fila
 
-      if (error && error.code !== 'PGRST116') { // PGRST116 = no rows found
-        console.error('Error fetching usage:', error);
+    if (error) {
+      console.error('Error fetching usage:', error);
+      // Si es 406, probablemente la tabla no existe o no hay permisos
+      if (error.code === '406') {
+        console.warn('Tabla monthly_usage no encontrada o sin permisos');
       }
-
-      setUsage({
-        count: data?.comment_count || 0,
-        month: currentDate.getMonth(),
-        year: year
-      });
-    } catch (err) {
-      console.error('Error in fetchUsage:', err);
-    } finally {
-      setIsLoading(false);
     }
-  }, [businessId]);
+
+    setUsage({
+      count: data?.comment_count || 0,
+      month: currentDate.getMonth(), // 0-11 para UI
+      year: year
+    });
+  } catch (err) {
+    console.error('Error in fetchUsage:', err);
+  } finally {
+    setIsLoading(false);
+  }
+}, [businessId]);
 
   useEffect(() => {
     fetchUsage();
@@ -223,9 +228,10 @@ function useMonthlyUsage(businessId: string, plan: PlanType) {
   return { usage, remaining, percentage, isLimitReached, isNearLimit, isLoading, limits, refreshUsage: fetchUsage };
 }
 
+
 export function DashboardPage({ user, onLogout, onNavigate: _onNavigate, themeProps }: DashboardPageProps) {
   const { comments, isLoading, deleteComment, getStats } = useComments(user.businessId);
-  const { business, getBusinessUrl, updateBusiness } = useBusiness(user.businessId);
+  const { business, getBusinessUrl } = useBusiness(user.businessId);
   
   // Tracking de uso mensual desde Supabase
   const { 
@@ -233,8 +239,7 @@ export function DashboardPage({ user, onLogout, onNavigate: _onNavigate, themePr
     percentage, 
     isLimitReached, 
     isNearLimit, 
-    limits,
-    isLoading: usageLoading 
+    limits
   } = useMonthlyUsage(user.businessId, user.plan);
 
   const [showQRDialog, setShowQRDialog] = useState(false);
@@ -364,116 +369,236 @@ export function DashboardPage({ user, onLogout, onNavigate: _onNavigate, themePr
   const stats = getStats();
 
   // Funciones de manejo
+  const [isSavingName, setIsSavingName] = useState(false);
+
   const handleSaveName = useCallback(async () => {
-
-    if (businessName.trim() === '') {
-      toast.error('El nombre no puede estar vacío')
-      return
+    const trimmedName = businessName.trim();
+    
+    // Validaciones frontend (coinciden con tu CHECK constraint)
+    if (trimmedName === '') {
+      toast.error('El nombre no puede estar vacío');
+      return;
     }
 
-    if (businessName.trim().length < 3) {
-      toast.error('El nombre debe tener al menos 3 caracteres')
-      return
+    if (trimmedName.length < 3) {
+      toast.error('El nombre debe tener al menos 3 caracteres');
+      return;
     }
 
-    if (!updateBusiness) return
-
-    const success = await updateBusiness({ name: businessName })
-
-    if (success) {
-      toast.success('Nombre actualizado correctamente')
-    } else {
-      toast.error('No se pudo actualizar el nombre')
+    if (trimmedName.length > 30) {
+      toast.error('El nombre no puede tener más de 30 caracteres');
+      return;
     }
-  }, [businessName, updateBusiness])
+
+    setIsSavingName(true);
+    
+    try {
+      // Actualización directa en Supabase
+      const { error } = await supabase
+        .from('businesses')
+        .update({ 
+          name: trimmedName,
+          updated_at: new Date().toISOString() // Actualizamos el timestamp manualmente
+        })
+        .eq('id', user.businessId)
+        .eq('owner_id', user.id); // Verificación de seguridad: solo el dueño puede editar
+
+      if (error) {
+        console.error('Error actualizando negocio:', error);
+        
+        // Manejo específico de errores
+        if (error.code === '23514') { // check_violation
+          toast.error('El nombre debe tener entre 3 y 30 caracteres');
+        } else if (error.code === '42501') { // insufficient_privilege (RLS)
+          toast.error('No tienes permisos para editar este negocio');
+        } else {
+          toast.error('No se pudo actualizar el nombre');
+        }
+        return;
+      }
+
+      toast.success('Nombre actualizado correctamente');
+      
+      setTimeout(() => {
+        window.location.reload();
+      }, 500);
+      
+    } catch (err) {
+      console.error('Error inesperado:', err);
+      toast.error('Error inesperado al guardar');
+    } finally {
+      setIsSavingName(false);
+    }
+  }, [businessName, user.businessId, user.id]);
 
   const handlePasswordChange = useCallback(async () => {
-    const errors: Record<string, string> = {}
+    // Timeout de seguridad: forzar reset después de 10 segundos
+    const timeoutId = setTimeout(() => {
+      setIsChangingPassword(false);
+      toast.error('Tiempo de espera agotado. Intenta de nuevo.');
+    }, 10000);
 
-    if (!currentPassword) {
-      errors.currentPassword = 'La contraseña actual es obligatoria'
+    setIsChangingPassword(true);
+    
+    try {
+      const errors: Record<string, string> = {}
+
+      if (!currentPassword) {
+        errors.currentPassword = 'La contraseña actual es obligatoria'
+      }
+      if (!newPassword || newPassword.length < 6) {
+        errors.newPassword = 'Debe tener al menos 6 caracteres'
+      }
+      if (newPassword === currentPassword) {
+        errors.newPassword = 'Debe ser diferente a la actual'
+      }
+      if (newPassword !== confirmNewPassword) {
+        errors.confirmNewPassword = 'Las contraseñas no coinciden'
+      }
+
+      if (Object.keys(errors).length > 0) {
+        setPasswordErrors(errors)
+        toast.error('Corrige los errores')
+        return
+      }
+
+      // Verificar sesión primero
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+      
+      if (sessionError || !session?.user?.email) {
+        toast.error('Sesión expirada. Inicia sesión de nuevo.')
+        return
+      }
+
+      // Reautenticar
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: session.user.email,
+        password: currentPassword
+      })
+
+      if (signInError) {
+        toast.error('Contraseña actual incorrecta')
+        return
+      }
+
+      // Cambiar contraseña
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword
+      })
+
+      if (error) {
+        toast.error(error.message || 'Error al cambiar contraseña')
+        return
+      }
+
+      toast.success('Contraseña actualizada correctamente')
+      
+      // Limpiar todo
+      setCurrentPassword('')
+      setNewPassword('')
+      setConfirmNewPassword('')
+      setShowPasswordForm(false)
+      setPasswordErrors({})
+      
+      // Opcional: cerrar sesión y pedir login de nuevo (más seguro)
+      // await supabase.auth.signOut()
+      // onLogout()
+
+    } catch (err: any) {
+      console.error('Error cambiando password:', err)
+      toast.error('Error inesperado: ' + (err?.message || 'Desconocido'))
+    } finally {
+      clearTimeout(timeoutId); // Limpiar timeout
+      setIsChangingPassword(false); // SIEMPRE desactivar
     }
-
-    if (!newPassword || newPassword.length < 6) {
-      errors.newPassword = 'Debe tener al menos 6 caracteres'
-    }
-
-    if (newPassword !== confirmNewPassword) {
-      errors.confirmNewPassword = 'Las contraseñas no coinciden'
-    }
-
-    if (Object.keys(errors).length > 0) {
-      setPasswordErrors(errors)
-      toast.error('Corrige los errores')
-      return
-    }
-
-    const { data } = await supabase.auth.getUser()
-    if (!data.user?.email) return
-
-    // Reautenticación
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email: data.user.email,
-      password: currentPassword
-    })
-
-    if (signInError) {
-      toast.error('Contraseña actual incorrecta')
-      return
-    }
-
-    // Cambio de contraseña
-    const { error } = await supabase.auth.updateUser({
-      password: newPassword
-    })
-
-    if (error) {
-      toast.error('No se pudo cambiar la contraseña')
-      return
-    }
-
-    toast.success('Contraseña actualizada')
-
-    setCurrentPassword('')
-    setNewPassword('')
-    setConfirmNewPassword('')
-    setShowPasswordForm(false)
-    setPasswordErrors({})
   }, [currentPassword, newPassword, confirmNewPassword])
 
 
+  const [isChangingEmail, setIsChangingEmail] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+
   const handleChangeEmail = useCallback(async () => {
-    if (!newEmail || !emailPassword) return
-
-    const { data } = await supabase.auth.getUser()
-    if (!data.user?.email) return
-
-    // Reautenticar
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email: data.user.email,
-      password: emailPassword
-    })
-
-    if (signInError) {
-      toast.error('Contraseña incorrecta')
-      return
+    const trimmedEmail = newEmail.trim();
+    
+    if (!trimmedEmail || !emailPassword) {
+      toast.error('Completa todos los campos');
+      return;
     }
 
-    // Cambiar email
-    const { error } = await supabase.auth.updateUser({
-      email: newEmail
-    })
-
-    if (error) {
-      toast.error('Error al cambiar email')
-      return
+    if (trimmedEmail === user.email) {
+      toast.error('El email es igual al actual');
+      return;
     }
 
-    toast.success('Email actualizado. Revisa tu correo.')
-    setShowEmailForm(false)
-    setNewEmail('')
-    setEmailPassword('')
-  }, [newEmail, emailPassword])
+    setIsChangingEmail(true);
+
+    try {
+      // 1. Verificar sesión actual (sin reautenticar para evitar doble llamada)
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !session) {
+        toast.error('Sesión expirada. Inicia sesión de nuevo.');
+        return;
+      }
+
+      // 2. Intentar actualizar email
+      const { error: authError } = await supabase.auth.updateUser({
+        email: trimmedEmail
+      });
+
+      if (authError) {
+        console.error('Auth error:', authError);
+        
+        // Manejo específico de rate limiting
+        if (authError.status === 429 || authError.message?.includes('rate limit')) {
+          toast.error(
+            'Límite de cambios alcanzado. Solo puedes cambiar el email 1 vez por hora. Inténtalo más tarde.',
+            { duration: 6000 }
+          );
+          return;
+        }
+        
+        if (authError.message?.includes('already registered') || authError.code === 'email_exists') {
+          toast.error('Este email ya está registrado por otro usuario');
+          return;
+        }
+        
+        toast.error(authError.message || 'Error al cambiar email');
+        return;
+      }
+
+      // 3. Actualizar en tabla businesses solo si auth tuvo éxito
+      const { error: dbError } = await supabase
+        .from('businesses')
+        .update({ 
+          email: trimmedEmail,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', user.businessId)
+        .eq('owner_id', user.id);
+
+      if (dbError) {
+        console.error('Database error:', dbError);
+        toast.error('Email solicitado, pero error al guardar en base de datos');
+        return;
+      }
+
+      toast.success(
+        'Solicitud enviada. Revisa tu correo nuevo (y también la carpeta de spam) para confirmar.',
+        { duration: 6000 }
+      );
+      
+      setShowEmailForm(false);
+      setNewEmail('');
+      setEmailPassword('');
+
+    } catch (err: any) {
+      console.error('Error completo:', err);
+      toast.error('Error inesperado al cambiar email');
+    } finally {
+      setIsChangingEmail(false);
+    }
+  }, [newEmail, emailPassword, user.email, user.businessId, user.id]);
 
 
   const handleDeleteAccount = useCallback(async () => {
@@ -2246,9 +2371,18 @@ export function DashboardPage({ user, onLogout, onNavigate: _onNavigate, themePr
                     placeholder="Nombre de tu negocio"
                     maxLength={30}
                   />
-                  <Button onClick={handleSaveName} size="sm">
-                    <Save className="w-4 h-4 mr-2" />
-                    Guardar
+                  <Button onClick={handleSaveName} size="sm" disabled={isSavingName}>
+                    {isSavingName ? (
+                      <>
+                        <div className="w-4 h-4 mr-2 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        Guardando...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-4 h-4 mr-2" />
+                        Guardar
+                      </>
+                    )}
                   </Button>
                 </div>
                 <div className="flex justify-between text-xs text-gray-500">
@@ -2297,13 +2431,26 @@ export function DashboardPage({ user, onLogout, onNavigate: _onNavigate, themePr
                         placeholder="Tu contraseña actual"
                       />
                     </div>
+                    <div className="bg-amber-50 dark:bg-amber-900/20 p-3 rounded-lg border border-amber-200 text-sm text-amber-800 dark:text-amber-200 mb-4">
+                      <AlertCircle className="w-4 h-4 inline mr-2" />
+                      Solo puedes cambiar tu email 1 vez por hora. Asegúrate de que el nuevo email sea correcto.
+                    </div>
                     <Button 
                       onClick={handleChangeEmail}
                       className="w-full"
-                      disabled={!newEmail || !emailPassword}
+                      disabled={!newEmail || !emailPassword || isChangingEmail}
                     >
-                      <Check className="w-4 h-4 mr-2" />
-                      Confirmar cambio de email
+                      {isChangingEmail ? (
+                        <>
+                          <div className="w-4 h-4 mr-2 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          Actualizando...
+                        </>
+                      ) : (
+                        <>
+                          <Check className="w-4 h-4 mr-2" />
+                          Confirmar cambio de email
+                        </>
+                      )}
                     </Button>
                   </div>
                 )}
@@ -2388,9 +2535,19 @@ export function DashboardPage({ user, onLogout, onNavigate: _onNavigate, themePr
                     <Button 
                       onClick={handlePasswordChange}
                       className="w-full"
+                      disabled={isChangingPassword}
                     >
-                      <Check className="w-4 h-4 mr-2" />
-                      Actualizar contraseña
+                      {isChangingPassword ? (
+                        <>
+                          <div className="w-4 h-4 mr-2 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          Actualizando...
+                        </>
+                      ) : (
+                        <>
+                          <Check className="w-4 h-4 mr-2" />
+                          Actualizar contraseña
+                        </>
+                      )}
                     </Button>
                   </div>
                 )}
