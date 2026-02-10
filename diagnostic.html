@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FeedbackFlow - Diagnóstico</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+        }
+        h1 {
+            margin-top: 0;
+            font-size: 2em;
+        }
+        .test {
+            background: rgba(255, 255, 255, 0.15);
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 10px;
+            border-left: 4px solid transparent;
+        }
+        .test.success {
+            border-left-color: #10b981;
+        }
+        .test.error {
+            border-left-color: #ef4444;
+        }
+        .test.warning {
+            border-left-color: #f59e0b;
+        }
+        .test h3 {
+            margin-top: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .icon {
+            font-size: 1.5em;
+        }
+        pre {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+            font-size: 0.9em;
+        }
+        button {
+            background: #10b981;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: 600;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background: #059669;
+        }
+        button:disabled {
+            background: #6b7280;
+            cursor: not-allowed;
+        }
+        .loading {
+            text-align: center;
+            padding: 20px;
+        }
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top: 4px solid white;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 FeedbackFlow - Diagnóstico</h1>
+        <p>Esta página verifica que tu configuración de Supabase esté correcta.</p>
+        
+        <button onclick="runDiagnostics()" id="runBtn">Ejecutar Diagnóstico</button>
+        
+        <div id="results"></div>
+    </div>
+
+    <script type="module">
+        window.runDiagnostics = async function() {
+            const resultsDiv = document.getElementById('results');
+            const runBtn = document.getElementById('runBtn');
+            
+            runBtn.disabled = true;
+            resultsDiv.innerHTML = '<div class="loading"><div class="spinner"></div><p>Ejecutando tests...</p></div>';
+            
+            const results = [];
+            
+            // Test 1: Variables de entorno
+            const url = import.meta.env.VITE_SUPABASE_URL;
+            const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
+            
+            results.push({
+                title: 'Variables de Entorno',
+                success: !!(url && key),
+                details: `
+URL: ${url ? '✓ Definida' : '✗ No definida'}
+Key: ${key ? '✓ Definida' : '✗ No definida'}
+
+${url ? `URL completa: ${url}` : ''}
+                `.trim()
+            });
+            
+            // Test 2: Formato de URL
+            let urlValid = false;
+            try {
+                new URL(url);
+                urlValid = true;
+                results.push({
+                    title: 'Formato de URL',
+                    success: true,
+                    details: 'La URL tiene un formato válido'
+                });
+            } catch (e) {
+                results.push({
+                    title: 'Formato de URL',
+                    success: false,
+                    details: `Error: ${e.message}`
+                });
+            }
+            
+            // Test 3: Conectividad con Supabase
+            if (urlValid && url) {
+                try {
+                    const response = await fetch(`${url}/rest/v1/`, {
+                        headers: {
+                            'apikey': key,
+                            'Authorization': `Bearer ${key}`
+                        }
+                    });
+                    
+                    results.push({
+                        title: 'Conectividad con Supabase',
+                        success: response.ok,
+                        details: `
+Status: ${response.status} ${response.statusText}
+Headers: ${response.ok ? '✓ Correctos' : '✗ Error de autenticación'}
+                        `.trim()
+                    });
+                } catch (e) {
+                    results.push({
+                        title: 'Conectividad con Supabase',
+                        success: false,
+                        details: `Error: ${e.message}`
+                    });
+                }
+            }
+            
+            // Test 4: Cliente de Supabase
+            if (url && key) {
+                try {
+                    const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
+                    const supabase = createClient(url, key);
+                    
+                    results.push({
+                        title: 'Inicialización del Cliente',
+                        success: true,
+                        details: 'Cliente de Supabase creado correctamente'
+                    });
+                    
+                    // Test 5: Query a tabla businesses
+                    try {
+                        const { data, error } = await supabase
+                            .from('businesses')
+                            .select('id, name')
+                            .limit(1);
+                        
+                        if (error) {
+                            // Error esperado si no hay autenticación
+                            if (error.code === 'PGRST301' || error.message.includes('RLS')) {
+                                results.push({
+                                    title: 'Tabla Businesses',
+                                    success: true,
+                                    details: 'Tabla existe, RLS activas (necesitas estar autenticado para ver datos)',
+                                    warning: true
+                                });
+                            } else {
+                                results.push({
+                                    title: 'Tabla Businesses',
+                                    success: false,
+                                    details: `Error: ${error.message} (Code: ${error.code})`
+                                });
+                            }
+                        } else {
+                            results.push({
+                                title: 'Tabla Businesses',
+                                success: true,
+                                details: `✓ Tabla accesible${data?.length > 0 ? `, encontrados ${data.length} registros` : ''}`
+                            });
+                        }
+                    } catch (e) {
+                        results.push({
+                            title: 'Tabla Businesses',
+                            success: false,
+                            details: `Excepción: ${e.message}`
+                        });
+                    }
+                    
+                    // Test 6: Auth session
+                    try {
+                        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+                        
+                        if (sessionError) {
+                            results.push({
+                                title: 'Sesión de Autenticación',
+                                success: false,
+                                details: `Error: ${sessionError.message}`
+                            });
+                        } else if (sessionData.session) {
+                            results.push({
+                                title: 'Sesión de Autenticación',
+                                success: true,
+                                details: `
+✓ Usuario autenticado: ${sessionData.session.user.email}
+ID: ${sessionData.session.user.id}
+Expira: ${new Date(sessionData.session.expires_at * 1000).toLocaleString()}
+                                `.trim()
+                            });
+                        } else {
+                            results.push({
+                                title: 'Sesión de Autenticación',
+                                success: true,
+                                details: 'No hay sesión activa (esto es normal si no has iniciado sesión)',
+                                warning: true
+                            });
+                        }
+                    } catch (e) {
+                        results.push({
+                            title: 'Sesión de Autenticación',
+                            success: false,
+                            details: `Excepción: ${e.message}`
+                        });
+                    }
+                    
+                } catch (e) {
+                    results.push({
+                        title: 'Inicialización del Cliente',
+                        success: false,
+                        details: `Error: ${e.message}`
+                    });
+                }
+            }
+            
+            // Test 7: LocalStorage
+            try {
+                const authKey = Object.keys(localStorage).find(k => k.includes('auth'));
+                if (authKey) {
+                    const authData = JSON.parse(localStorage.getItem(authKey));
+                    results.push({
+                        title: 'LocalStorage',
+                        success: true,
+                        details: `
+✓ Datos de autenticación encontrados
+Key: ${authKey}
+User: ${authData?.user?.email || 'N/A'}
+                        `.trim()
+                    });
+                } else {
+                    results.push({
+                        title: 'LocalStorage',
+                        success: true,
+                        details: 'No hay datos de autenticación guardados',
+                        warning: true
+                    });
+                }
+            } catch (e) {
+                results.push({
+                    title: 'LocalStorage',
+                    success: false,
+                    details: `Error: ${e.message}`
+                });
+            }
+            
+            // Renderizar resultados
+            const successCount = results.filter(r => r.success && !r.warning).length;
+            const warningCount = results.filter(r => r.warning).length;
+            const errorCount = results.filter(r => !r.success).length;
+            
+            let html = `
+                <div class="test ${errorCount === 0 ? 'success' : 'warning'}">
+                    <h3>
+                        <span class="icon">${errorCount === 0 ? '✅' : '⚠️'}</span>
+                        Resumen
+                    </h3>
+                    <p>
+                        ✅ ${successCount} tests exitosos<br>
+                        ${warningCount > 0 ? `⚠️ ${warningCount} warnings<br>` : ''}
+                        ${errorCount > 0 ? `❌ ${errorCount} errores` : ''}
+                    </p>
+                </div>
+            `;
+            
+            results.forEach(result => {
+                const className = result.warning ? 'warning' : (result.success ? 'success' : 'error');
+                const icon = result.warning ? '⚠️' : (result.success ? '✅' : '❌');
+                
+                html += `
+                    <div class="test ${className}">
+                        <h3>
+                            <span class="icon">${icon}</span>
+                            ${result.title}
+                        </h3>
+                        <pre>${result.details}</pre>
+                    </div>
+                `;
+            });
+            
+            if (errorCount === 0) {
+                html += `
+                    <div class="test success">
+                        <h3>
+                            <span class="icon">🎉</span>
+                            ¡Todo Correcto!
+                        </h3>
+                        <p>Tu configuración de Supabase está correcta. Ahora puedes:</p>
+                        <ol>
+                            <li>Volver a tu aplicación principal</li>
+                            <li>Intentar iniciar sesión</li>
+                            <li>Recargar la página - debería mantener la sesión</li>
+                        </ol>
+                    </div>
+                `;
+            } else {
+                html += `
+                    <div class="test error">
+                        <h3>
+                            <span class="icon">🔧</span>
+                            Acción Requerida
+                        </h3>
+                        <p>Corrige los errores anteriores:</p>
+                        <ul>
+                            <li>Verifica las variables de entorno en Vercel</li>
+                            <li>Asegúrate de usar el prefijo VITE_</li>
+                            <li>Redespliega después de hacer cambios</li>
+                        </ul>
+                    </div>
+                `;
+            }
+            
+            resultsDiv.innerHTML = html;
+            runBtn.disabled = false;
+        };
+    </script>
+</body>
+</html>
