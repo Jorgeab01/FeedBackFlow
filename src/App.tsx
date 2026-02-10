@@ -13,7 +13,7 @@ import { Toaster } from '@/components/ui/sonner';
 import type { PlanType } from '@/types';
 import { toast } from 'sonner';
 
-// 🔐 Wrapper para rutas privadas
+// 🔐 Guard de rutas privadas
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
 
@@ -25,8 +25,9 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
 
 // 🌍 Feedback público
 function FeedbackRoute() {
-  const { businessId } = useParams();
-  return <FeedbackPage businessId={businessId!} />;
+  const { businessId } = useParams<{ businessId: string }>();
+  if (!businessId) return <Navigate to="/login" replace />;
+  return <FeedbackPage businessId={businessId} />;
 }
 
 export default function App() {
@@ -34,14 +35,14 @@ export default function App() {
   const themeProps = useTheme();
   const navigate = useNavigate();
 
-  // 🔁 Redirección automática tras login
+  // 🔁 Redirección post-login
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
       navigate('/dashboard', { replace: true });
     }
   }, [isLoading, isAuthenticated, navigate]);
 
-  // Estado para flujo de registro
+  // Flujo de registro
   const [registrationData, setRegistrationData] = useState<{
     businessName: string;
     email: string;
@@ -60,7 +61,7 @@ export default function App() {
 
     if (!ok) {
       toast.error('No se pudo crear la cuenta');
-      navigate('/register');
+      navigate('/register', { replace: true });
       return;
     }
 
@@ -68,7 +69,7 @@ export default function App() {
     navigate('/dashboard', { replace: true });
   };
 
-  // 🔄 Loader global
+  // Loader global
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -91,7 +92,6 @@ export default function App() {
               element={
                 <LoginPage
                   onLogin={login}
-                  onNavigate={navigate}
                   themeProps={themeProps}
                 />
               }
@@ -100,7 +100,6 @@ export default function App() {
               path="/register"
               element={
                 <RegisterPage
-                  onNavigate={navigate}
                   onSetRegistrationData={setRegistrationData}
                   themeProps={themeProps}
                 />
@@ -120,7 +119,6 @@ export default function App() {
                   <DashboardPage
                     user={user}
                     onLogout={logout}
-                    onNavigate={navigate}
                     themeProps={themeProps}
                   />
                 </PrivateRoute>
@@ -132,7 +130,6 @@ export default function App() {
               element={
                 <PrivateRoute>
                   <PlansPage
-                    onNavigate={navigate}
                     onSelectPlan={handleSelectPlan}
                     isAuthenticated={isAuthenticated}
                     user={user}
