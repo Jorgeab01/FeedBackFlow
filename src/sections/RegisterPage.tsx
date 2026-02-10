@@ -127,6 +127,8 @@ export function RegisterPage({ onSetRegistrationData, themeProps }: RegisterPage
         password
       })
 
+      navigate('/planspage')
+
       toast.success('¡Datos guardados!', {
         description: 'Ahora elige tu plan'
       })
