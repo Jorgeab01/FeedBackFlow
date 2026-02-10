@@ -44,20 +44,27 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
       'X-Client-Info': 'feedbackflow-web'
     },
     // ⚡ CLAVE: Aumentar timeout de fetch a 30 segundos
-    fetch: (url, options = {}) => {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => {
-        console.warn('[Supabase] Timeout de 30s alcanzado para:', url);
-        controller.abort();
-      }, 30000); // 30 segundos
+    fetch: (url, options: any = {}) => {
+  const controller = new AbortController();
 
-      return fetch(url, {
-        ...options,
-        signal: controller.signal,
-      }).finally(() => {
-        clearTimeout(timeoutId);
-      });
-    }
+  const timeoutId = setTimeout(() => {
+    console.warn('[Supabase] Timeout de 30s alcanzado para:', url);
+    controller.abort();
+  }, 30000);
+
+  // 🔑 combinar señales
+  const signal = options.signal
+    ? AbortSignal.any([options.signal, controller.signal])
+    : controller.signal;
+
+  return fetch(url, {
+    ...options,
+    signal,
+  }).finally(() => {
+    clearTimeout(timeoutId);
+  });
+}
+
   },
   db: {
     schema: 'public'
