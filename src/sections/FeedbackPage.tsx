@@ -7,6 +7,7 @@ import { useBusiness } from '@/hooks/useBusiness';
 import { useComments } from '@/hooks/useComments';
 import type { SatisfactionLevel, PlanType } from '@/types';
 import { toast } from 'sonner';
+import { supabase } from '@/lib/supabase';
 import { 
   Store, 
   Send, 
@@ -20,58 +21,64 @@ interface FeedbackPageProps {
   businessId: string;
 }
 
-// Hook de tracking (puedes moverlo a un archivo separado si prefieres)
-function useMonthlyUsage(businessId: string, plan: PlanType) {
-  const limits = {
-    free: { maxCommentsPerMonth: 30, hasLimit: true },
-    basic: { maxCommentsPerMonth: 200, hasLimit: true },
-    pro: { maxCommentsPerMonth: Infinity, hasLimit: false }
-  }[plan] || { maxCommentsPerMonth: 30, hasLimit: true };
+// Hook interno para tracking de uso (invisible para el usuario)
+function useMonthlyUsage(businessId: string, plan: PlanType | undefined) {
+  const [isLimitReached, setIsLimitReached] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const [usage, setUsage] = useState(() => {
-    const storageKey = `feedbackflow_usage_${businessId}`;
-    const stored = localStorage.getItem(storageKey);
-    const currentMonth = new Date().getMonth();
-    const currentYear = new Date().getFullYear();
-    
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        if (parsed.month !== currentMonth || parsed.year !== currentYear) {
-          const fresh = { count: 0, month: currentMonth, year: currentYear };
-          localStorage.setItem(storageKey, JSON.stringify(fresh));
-          return fresh;
-        }
-        return parsed;
-      } catch (e) {
-        // Reset si hay error
-      }
+  const limits: Record<PlanType, number> = {
+    free: 30,
+    basic: 200,
+    pro: Infinity
+  };
+
+  const checkUsage = useCallback(async () => {
+    if (!businessId || !plan) {
+      setIsLoading(false);
+      return;
     }
-    const initial = { count: 0, month: currentMonth, year: currentYear };
-    localStorage.setItem(storageKey, JSON.stringify(initial));
-    return initial;
-  });
 
-  const incrementUsage = useCallback(() => {
-    if (!limits.hasLimit) return;
-    const newCount = usage.count + 1;
-    const newUsage = { ...usage, count: newCount };
-    localStorage.setItem(`feedbackflow_usage_${businessId}`, JSON.stringify(newUsage));
-    setUsage(newUsage);
-  }, [usage, businessId, limits.hasLimit]);
+    const currentDate = new Date();
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth() + 1;
 
-  const remaining = limits.hasLimit ? Math.max(0, limits.maxCommentsPerMonth - usage.count) : Infinity;
-  const isLimitReached = limits.hasLimit && usage.count >= limits.maxCommentsPerMonth;
+    try {
+      const { data, error } = await supabase
+        .from('monthly_usage')
+        .select('comment_count')
+        .eq('business_id', businessId)
+        .eq('year', year)
+        .eq('month', month)
+        .single();
 
-  return { usage, remaining, isLimitReached, incrementUsage, limits };
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error fetching usage:', error);
+      }
+
+      const count = data?.comment_count || 0;
+      const limit = limits[plan] ?? 30;
+      
+      setIsLimitReached(limit !== Infinity && count >= limit);
+    } catch (err) {
+      console.error('Error checking usage:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [businessId, plan]);
+
+  useEffect(() => {
+    checkUsage();
+  }, [checkUsage]);
+
+  return { isLimitReached, isLoading };
 }
 
 export function FeedbackPage({ businessId }: FeedbackPageProps) {
   const { business, isLoading: businessLoading } = useBusiness(businessId);
   const { addComment } = useComments(businessId);
   
-  // Tracking de límite mensual - SOLO si tenemos el negocio cargado
-  const { isLimitReached, incrementUsage } = useMonthlyUsage(
+  // Tracking invisible - no se muestra en la UI
+  const { isLimitReached } = useMonthlyUsage(
     businessId, 
     business?.plan || 'free'
   );
@@ -112,14 +119,18 @@ export function FeedbackPage({ businessId }: FeedbackPageProps) {
 
     setIsSubmitting(true);
 
-    
     // Solo guardar si NO se ha alcanzado el límite
     // Si se alcanzó el límite, hace como que envía pero realmente no hace nada
     if (!isLimitReached) {
-      addComment(comment, selectedSatisfaction);
-      incrementUsage();
+      try {
+        await addComment(comment, selectedSatisfaction);
+      } catch (error) {
+        // Silenciar errores para no alertar al usuario
+        console.error('Error saving comment:', error);
+      }
     }
     
+    // Siempre mostrar éxito, independientemente de si se guardó o no
     setIsSubmitting(false);
     setIsSubmitted(true);
   };
@@ -210,7 +221,7 @@ export function FeedbackPage({ businessId }: FeedbackPageProps) {
               <Card className="border-0 shadow-2xl bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm overflow-hidden">
                 <CardContent className="p-6 sm:p-8">
                   
-                  {/* Satisfaction Selector - Siempre habilitado ahora */}
+                  {/* Satisfaction Selector - Siempre habilitado */}
                   <div className="mb-8">
                     <label className="block text-center text-lg font-semibold text-gray-900 dark:text-white mb-6">
                       ¿Cómo fue tu experiencia?
@@ -243,7 +254,7 @@ export function FeedbackPage({ businessId }: FeedbackPageProps) {
                     </div>
                   </div>
 
-                  {/* Comment Input - Siempre habilitado ahora */}
+                  {/* Comment Input - Siempre habilitado */}
                   <div className="mb-6">
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       Cuéntanos más sobre tu experiencia
@@ -256,7 +267,7 @@ export function FeedbackPage({ businessId }: FeedbackPageProps) {
                     />
                   </div>
 
-                  {/* Submit Button - Siempre habilitado ahora */}
+                  {/* Submit Button - Siempre habilitado */}
                   <Button
                     onClick={handleSubmit}
                     disabled={isSubmitting}

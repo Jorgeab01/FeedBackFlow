@@ -160,59 +160,81 @@ const statsDatePresets = [
   { label: 'Todo', days: 'all' as const, icon: Clock },
 ];
 
-// Hook para tracking de uso mensual
+// Hook para tracking de uso mensual desde Supabase
 function useMonthlyUsage(businessId: string, plan: PlanType) {
-  const [usage, setUsage] = useState({ count: 0, month: new Date().getMonth(), year: new Date().getFullYear() });
+  const [usage, setUsage] = useState({ 
+    count: 0, 
+    month: new Date().getMonth(), 
+    year: new Date().getFullYear() 
+  });
+  const [isLoading, setIsLoading] = useState(true);
   const limits = PLAN_LIMITS[plan];
 
-  useEffect(() => {
-    const stored = localStorage.getItem(`feedbackflow_usage_${businessId}`);
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      const currentMonth = new Date().getMonth();
-      const currentYear = new Date().getFullYear();
-      
-      // Resetear si es un nuevo mes
-      if (parsed.month !== currentMonth || parsed.year !== currentYear) {
-        const newUsage = { count: 0, month: currentMonth, year: currentYear };
-        localStorage.setItem(`feedbackflow_usage_${businessId}`, JSON.stringify(newUsage));
-        setUsage(newUsage);
-      } else {
-        setUsage(parsed);
+  const fetchUsage = useCallback(async () => {
+    if (!businessId) {
+      setIsLoading(false);
+      return;
+    }
+
+    const currentDate = new Date();
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth() + 1; // PostgreSQL usa 1-12
+
+    try {
+      const { data, error } = await supabase
+        .from('monthly_usage')
+        .select('comment_count')
+        .eq('business_id', businessId)
+        .eq('year', year)
+        .eq('month', month)
+        .single();
+
+      if (error && error.code !== 'PGRST116') { // PGRST116 = no rows found
+        console.error('Error fetching usage:', error);
       }
-    } else {
-      const initial = { count: 0, month: new Date().getMonth(), year: new Date().getFullYear() };
-      localStorage.setItem(`feedbackflow_usage_${businessId}`, JSON.stringify(initial));
-      setUsage(initial);
+
+      setUsage({
+        count: data?.comment_count || 0,
+        month: currentDate.getMonth(),
+        year: year
+      });
+    } catch (err) {
+      console.error('Error in fetchUsage:', err);
+    } finally {
+      setIsLoading(false);
     }
   }, [businessId]);
 
-  const incrementUsage = useCallback(() => {
-    const newUsage = { ...usage, count: usage.count + 1 };
-    localStorage.setItem(`feedbackflow_usage_${businessId}`, JSON.stringify(newUsage));
-    setUsage(newUsage);
-    return newUsage.count;
-  }, [usage, businessId]);
+  useEffect(() => {
+    fetchUsage();
+  }, [fetchUsage, businessId]);
 
-  const remaining = Math.max(0, limits.maxCommentsPerMonth - usage.count);
-  const percentage = Math.min(100, (usage.count / limits.maxCommentsPerMonth) * 100);
-  const isLimitReached = usage.count >= limits.maxCommentsPerMonth;
-  const isNearLimit = percentage >= 80 && percentage < 100;
+  const remaining = limits.maxCommentsPerMonth === Infinity 
+    ? Infinity 
+    : Math.max(0, limits.maxCommentsPerMonth - usage.count);
+    
+  const percentage = limits.maxCommentsPerMonth === Infinity 
+    ? 0 
+    : Math.min(100, (usage.count / limits.maxCommentsPerMonth) * 100);
+    
+  const isLimitReached = limits.maxCommentsPerMonth !== Infinity && usage.count >= limits.maxCommentsPerMonth;
+  const isNearLimit = limits.maxCommentsPerMonth !== Infinity && percentage >= 80 && percentage < 100;
 
-  return { usage, remaining, percentage, isLimitReached, isNearLimit, incrementUsage, limits };
+  return { usage, remaining, percentage, isLimitReached, isNearLimit, isLoading, limits, refreshUsage: fetchUsage };
 }
 
 export function DashboardPage({ user, onLogout, onNavigate: _onNavigate, themeProps }: DashboardPageProps) {
   const { comments, isLoading, deleteComment, getStats } = useComments(user.businessId);
   const { business, getBusinessUrl, updateBusiness } = useBusiness(user.businessId);
   
-  // Tracking de uso mensual (independiente de comentarios eliminados)
+  // Tracking de uso mensual desde Supabase
   const { 
     remaining, 
     percentage, 
     isLimitReached, 
     isNearLimit, 
-    limits 
+    limits,
+    isLoading: usageLoading 
   } = useMonthlyUsage(user.businessId, user.plan);
 
   const [showQRDialog, setShowQRDialog] = useState(false);
@@ -1722,9 +1744,11 @@ export function DashboardPage({ user, onLogout, onNavigate: _onNavigate, themePr
                       <div className="flex items-center gap-2 text-white/90 text-sm">
                         <Zap className="w-4 h-4" />
                         <span>
-                          {remaining > 0 
+                          {remaining !== Infinity && remaining > 0 
                             ? `${remaining} comentarios disponibles este mes` 
-                            : 'Límite mensual alcanzado'}
+                            : remaining === 0 
+                            ? 'Límite mensual alcanzado' 
+                            : 'Comentarios ilimitados'}
                         </span>
                       </div>
                       <div className="w-full h-1.5 bg-white/20 rounded-full mt-2">
@@ -2413,7 +2437,6 @@ export function DashboardPage({ user, onLogout, onNavigate: _onNavigate, themePr
                   return (
                     <div 
                       key={plan}
-                      // !! CORREGIR onClick={() => plan !== 'free' && handleChangePlan(plan)} 
                       className={`
                         p-4 rounded-lg border-2 cursor-pointer transition-all
                         ${isCurrent 
