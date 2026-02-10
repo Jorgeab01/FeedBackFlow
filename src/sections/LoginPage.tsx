@@ -35,7 +35,7 @@ export function LoginPage({ onLogin, themeProps }: LoginPageProps) {
       toast.success('¡Bienvenido!', {
         description: 'Has iniciado sesión correctamente.',
       });
-      navigate('/dashboard')
+      navigate('/dashboard', { replace: true });
     } else {
       toast.error('Error de inicio de sesión', {
         description: 'Email o contraseña incorrectos.',
