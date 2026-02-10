@@ -7,21 +7,23 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { MessageSquare, Store, Sparkles, ArrowRight, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
 import { ThemeToggle } from '@/components/ThemeToggle';
-import type { useTheme } from '@/hooks/useTheme';
+import { useTheme } from '@/hooks/useTheme';
+import { useNavigate } from 'react-router-dom';
 
 interface LoginPageProps {
   onLogin: (email: string, password: string) => Promise<boolean>;
-  onNavigate: (path: string) => void;
   themeProps: {
     theme: ReturnType<typeof useTheme>['theme'];
     setTheme: ReturnType<typeof useTheme>['setTheme'];
   };
 }
 
-export function LoginPage({ onLogin, onNavigate, themeProps }: LoginPageProps) {
+export function LoginPage({ onLogin, themeProps }: LoginPageProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const navigate = useNavigate();
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -178,7 +180,7 @@ export function LoginPage({ onLogin, onNavigate, themeProps }: LoginPageProps) {
                 </p>
                 <Button
                   variant="outline"
-                  onClick={() => onNavigate('/register')}
+                  onClick={() => navigate('/register')}
                   className="w-full h-12 gap-2 border-indigo-600 text-indigo-600 hover:bg-indigo-50 dark:border-indigo-400 dark:text-indigo-400 dark:hover:bg-indigo-900/30"
                 >
                   <UserPlus className="w-5 h-5" />

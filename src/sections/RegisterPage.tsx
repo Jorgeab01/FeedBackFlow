@@ -24,11 +24,11 @@ import {
   AlertCircle
 } from 'lucide-react'
 import { ThemeToggle } from '@/components/ThemeToggle'
-import type { useTheme } from '@/hooks/useTheme'
+import { useTheme } from '@/hooks/useTheme'
 import { toast } from 'sonner'
+import { useNavigate } from 'react-router-dom';
 
 interface RegisterPageProps {
-  onNavigate: (path: string) => void;
   onSetRegistrationData: (data: { businessName: string; email: string; password: string }) => void;
   themeProps: {
     theme: ReturnType<typeof useTheme>['theme'];
@@ -44,13 +44,14 @@ interface FormErrors {
 }
 
 
-export function RegisterPage({ onNavigate, onSetRegistrationData, themeProps }: RegisterPageProps) {
+export function RegisterPage({ onSetRegistrationData, themeProps }: RegisterPageProps) {
   const [businessName, setBusinessName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [errors, setErrors] = useState<FormErrors>({})
+  const navigate = useNavigate();
 
   const validateForm = () => {
     const newErrors: FormErrors = {}
@@ -108,7 +109,7 @@ export function RegisterPage({ onNavigate, onSetRegistrationData, themeProps }: 
           duration: 6000,
           action: {
             label: 'Ir a Login',
-            onClick: () => onNavigate('/login')
+            onClick: () => navigate('/login')
           },
           cancel: {
             label: 'Cerrar',
@@ -130,7 +131,7 @@ export function RegisterPage({ onNavigate, onSetRegistrationData, themeProps }: 
         description: 'Ahora elige tu plan'
       })
       
-      onNavigate('/plans')
+      navigate('/plans')
     } catch (error) {
       console.error('Error verificando email:', error)
       toast.error('Error al verificar el correo', {
@@ -196,7 +197,7 @@ export function RegisterPage({ onNavigate, onSetRegistrationData, themeProps }: 
       {/* Back Button */}
       <Button
         variant="ghost"
-        onClick={() => onNavigate('/login')}
+        onClick={() => navigate('/login')}
         className="fixed top-4 left-4 gap-2 text-gray-600 dark:text-gray-300"
       >
         <ArrowLeft className="w-4 h-4" />
@@ -354,7 +355,7 @@ export function RegisterPage({ onNavigate, onSetRegistrationData, themeProps }: 
             <p className="text-center text-sm text-gray-500 dark:text-gray-400 mt-6">
               ¿Ya tienes una cuenta?{' '}
               <button 
-                onClick={() => onNavigate('/login')}
+                onClick={() => navigate('/login')}
                 className="text-indigo-600 dark:text-indigo-400 hover:underline font-medium"
               >
                 Inicia sesión

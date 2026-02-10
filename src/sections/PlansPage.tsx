@@ -6,13 +6,13 @@ import { Switch } from '@/components/ui/switch';
 import { Check, ArrowLeft, Sparkles, Zap, Crown, Star } from 'lucide-react';
 import { toast } from 'sonner';
 import { ThemeToggle } from '@/components/ThemeToggle';
-import type { useTheme } from '@/hooks/useTheme';
+import { useTheme } from '@/hooks/useTheme';
 import type { PlanType, User } from '@/types';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase'
+import { useNavigate } from 'react-router-dom';
 
 interface PlansPageProps {
-  onNavigate: (path: string) => void;
   onSelectPlan: (plan: PlanType) => void;
   isAuthenticated: boolean;
   user: User | null;
@@ -22,10 +22,11 @@ interface PlansPageProps {
   };
 }
 
-export function PlansPage({ onNavigate, onSelectPlan, isAuthenticated, user, themeProps }: PlansPageProps) {
+export function PlansPage({ onSelectPlan, isAuthenticated, user, themeProps }: PlansPageProps) {
   const [isYearly, setIsYearly] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [businessName, setBusinessName] = useState<string | null>(null)
+  const navigate = useNavigate();
 
   // Si está autenticado, mostrar el nombre del negocio actual
   useEffect(() => {
@@ -59,7 +60,7 @@ export function PlansPage({ onNavigate, onSelectPlan, isAuthenticated, user, the
         }
 
         toast.success(messages[plan])
-        onNavigate('/dashboard')
+        navigate('/dashboard')
       } else {
         // Flujo de registro: delegar al App.tsx
         await onSelectPlan(plan)
@@ -94,7 +95,7 @@ export function PlansPage({ onNavigate, onSelectPlan, isAuthenticated, user, the
       {/* Back Button */}
       <Button
         variant="ghost"
-        onClick={() => isAuthenticated ? onNavigate('/dashboard') : onNavigate('/register')}
+        onClick={() => isAuthenticated ? navigate('/dashboard') : navigate('/register')}
         className="fixed top-4 left-4 gap-2 text-gray-600 dark:text-gray-300 z-50"
       >
         <ArrowLeft className="w-4 h-4" />

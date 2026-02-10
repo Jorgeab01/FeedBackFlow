@@ -92,7 +92,6 @@ import { es } from 'date-fns/locale';
 interface DashboardPageProps {
   user: User;
   onLogout: () => void;
-  onNavigate: (path: string) => void;
   themeProps: {
     theme: ReturnType<typeof useTheme>['theme'];
     setTheme: ReturnType<typeof useTheme>['setTheme'];
@@ -229,7 +228,7 @@ function useMonthlyUsage(businessId: string, plan: PlanType) {
 }
 
 
-export function DashboardPage({ user, onLogout, onNavigate: _onNavigate, themeProps }: DashboardPageProps) {
+export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps) {
   const { comments, isLoading, deleteComment, getStats } = useComments(user.businessId);
   const { business, getBusinessUrl } = useBusiness(user.businessId);
   
