@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
-import type { User } from '@/types';
+import type { User, PlanType } from '@/types';
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
@@ -12,50 +12,49 @@ export function useAuth() {
     setIsAuthenticated(false);
   };
 
-  const hydrateUser = useCallback(async (authUser: { id: string; email?: string }) => {
-    console.log('[hydrateUser] 🚀 start');
+  const hydrateUser = useCallback(
+    async (authUser: { id: string; email?: string }) => {
+      console.log('[hydrateUser] 🚀 start');
 
-    try {
-      const { data, error } = await supabase
-        .from('businesses')
-        .select('id, name, plan')
-        .eq('owner_id', authUser.id)
-        .maybeSingle();
+      try {
+        const { data, error } = await supabase
+          .from('businesses')
+          .select('id, name, plan')
+          .eq('owner_id', authUser.id)
+          .maybeSingle();
 
-      if (error || !data) {
-        console.warn('[hydrateUser] ⚠️ no business or error', error);
+        if (error || !data) {
+          console.warn('[hydrateUser] ⚠️ no business', error);
+          clearAuth();
+          return;
+        }
+
+        setUser({
+          id: authUser.id,
+          email: authUser.email!,
+          businessId: data.id,
+          businessName: data.name,
+          plan: data.plan
+        });
+
+        setIsAuthenticated(true);
+      } catch (err) {
+        console.error('[hydrateUser] 💥 exception', err);
         clearAuth();
-        return;
+      } finally {
+        console.log('[hydrateUser] ✅ end');
+        setIsLoading(false);
       }
-
-      setUser({
-        id: authUser.id,
-        email: authUser.email!,
-        businessId: data.id,
-        businessName: data.name,
-        plan: data.plan
-      });
-
-      setIsAuthenticated(true);
-    } catch (err) {
-      console.error('[hydrateUser] 💥 exception', err);
-      clearAuth();
-    } finally {
-      console.log('[hydrateUser] ✅ end');
-      setIsLoading(false);
-    }
-  }, []);
+    },
+    []
+  );
 
   useEffect(() => {
-    let initialized = false;
-
     const { data: subscription } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log('[auth] event:', event);
 
         if (event === 'INITIAL_SESSION') {
-          initialized = true;
-
           if (session?.user) {
             await hydrateUser(session.user);
           } else {
@@ -64,7 +63,7 @@ export function useAuth() {
           }
         }
 
-        if (initialized && event === 'SIGNED_OUT') {
+        if (event === 'SIGNED_OUT') {
           clearAuth();
           setIsLoading(false);
         }
@@ -76,11 +75,41 @@ export function useAuth() {
     };
   }, [hydrateUser]);
 
+  // 🔐 LOGIN
   const login = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     return !error;
   };
 
+  // 📝 REGISTER
+  const register = async (
+    businessName: string,
+    email: string,
+    password: string,
+    plan: PlanType
+  ) => {
+    const { data, error } = await supabase.auth.signUp({ email, password });
+    if (error || !data.user) return false;
+
+    const { error: businessError } = await supabase
+      .from('businesses')
+      .insert({
+        name: businessName,
+        email,
+        plan,
+        owner_id: data.user.id,
+        is_active: true
+      });
+
+    if (businessError) {
+      await supabase.auth.signOut();
+      return false;
+    }
+
+    return true;
+  };
+
+  // 🚪 LOGOUT
   const logout = async () => {
     await supabase.auth.signOut();
     clearAuth();
@@ -91,6 +120,7 @@ export function useAuth() {
     isAuthenticated,
     isLoading,
     login,
+    register,
     logout
   };
 }
