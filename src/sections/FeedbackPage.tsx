@@ -111,9 +111,7 @@ export function FeedbackPage({ businessId }: FeedbackPageProps) {
     }
 
     setIsSubmitting(true);
-    
-    // Simular delay de red para que parezca real
-    await new Promise(resolve => setTimeout(resolve, 1000));
+
     
     // Solo guardar si NO se ha alcanzado el límite
     // Si se alcanzó el límite, hace como que envía pero realmente no hace nada
