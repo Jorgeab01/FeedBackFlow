@@ -16,15 +16,23 @@ export function useAuth() {
 
   const hydrateUser = useCallback(
     async (authUser: { id: string; email?: string }) => {
+      console.log('[hydrateUser] 🚀 start');
+
       try {
         const { data, error } = await supabase
           .from('businesses')
           .select('id, name, plan')
           .eq('owner_id', authUser.id)
-          .single();
+          .maybeSingle(); // 👈 MUY IMPORTANTE
 
-        if (error || !data) {
-          console.error('[hydrateUser] ❌ Error:', error);
+        if (error) {
+          console.error('[hydrateUser] ❌ query error:', error);
+          clearAuth();
+          return;
+        }
+
+        if (!data) {
+          console.warn('[hydrateUser] ⚠️ user sin business');
           clearAuth();
           return;
         }
@@ -39,14 +47,16 @@ export function useAuth() {
 
         setIsAuthenticated(true);
       } catch (err) {
-        console.error('[hydrateUser] 💥 Exception:', err);
+        console.error('[hydrateUser] 💥 exception:', err);
         clearAuth();
       } finally {
-        setIsLoading(false);
+        console.log('[hydrateUser] ✅ end');
+        setIsLoading(false); // 👈 SIEMPRE
       }
     },
     []
   );
+
 
   useEffect(() => {
     if (initializedRef.current) return;
