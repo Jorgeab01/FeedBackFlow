@@ -36,6 +36,9 @@ export function useAuth() {
           await supabase.auth.signOut();
         }
         setAuthState(null);
+        if (isMountedRef.current) {
+          setIsLoading(false);
+        }
         return false;
       }
 
@@ -43,6 +46,9 @@ export function useAuth() {
         console.warn('[hydrateUser] No business encontrado para userId:', userId);
         await supabase.auth.signOut();
         setAuthState(null);
+        if (isMountedRef.current) {
+          setIsLoading(false);
+        }
         return false;
       }
 
@@ -54,10 +60,16 @@ export function useAuth() {
         businessName: business.name,
         plan: business.plan
       });
+      if (isMountedRef.current) {
+        setIsLoading(false);
+      }
       return true;
     } catch (err: any) {
       console.error('[hydrateUser] Excepción:', err?.message || err);
       setAuthState(null);
+      if (isMountedRef.current) {
+        setIsLoading(false);
+      }
       return false;
     }
   }, [setAuthState]);
@@ -71,6 +83,15 @@ export function useAuth() {
     initRef.current = true;
 
     const init = async () => {
+      // Timeout de seguridad: si después de 10 segundos sigue cargando, forzar finalización
+      const timeoutId = setTimeout(() => {
+        console.warn('[useAuth] Timeout alcanzado - forzando fin de carga');
+        if (isMountedRef.current) {
+          setAuthState(null);
+          setIsLoading(false);
+        }
+      }, 10000);
+
       try {
         console.log('[useAuth] Inicializando, verificando sesión...');
         const { data, error } = await supabase.auth.getSession();
@@ -79,6 +100,7 @@ export function useAuth() {
           console.error('[useAuth] Error getSession:', error);
           setAuthState(null);
           setIsLoading(false);
+          clearTimeout(timeoutId);
           return;
         }
 
@@ -94,6 +116,7 @@ export function useAuth() {
         console.error('[useAuth] Error en init:', err);
         setAuthState(null);
       } finally {
+        clearTimeout(timeoutId);
         if (isMountedRef.current) {
           setIsLoading(false);
         }
