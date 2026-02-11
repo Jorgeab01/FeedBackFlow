@@ -111,8 +111,10 @@ export function useAuth() {
 
   // 🚪 LOGOUT
   const logout = async () => {
+    setIsLoading(true);
     await supabase.auth.signOut();
     clearAuth();
+    setIsLoading(false);
   };
 
   return {

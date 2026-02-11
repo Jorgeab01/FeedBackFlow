@@ -127,13 +127,12 @@ export function RegisterPage({ onSetRegistrationData, themeProps }: RegisterPage
         password
       })
 
-      navigate('/planspage')
-
       toast.success('¡Datos guardados!', {
         description: 'Ahora elige tu plan'
       })
-      
+
       navigate('/plans')
+
     } catch (error) {
       console.error('Error verificando email:', error)
       toast.error('Error al verificar el correo', {
