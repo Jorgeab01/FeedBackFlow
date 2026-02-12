@@ -7,10 +7,10 @@ export function useAuth() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  const clearAuth = () => {
+  const clearAuth = useCallback(() => {
     setUser(null);
     setIsAuthenticated(false);
-  };
+  }, []);
 
   const hydrateUser = useCallback(
     async (authUser: { id: string; email?: string }) => {
@@ -26,6 +26,7 @@ export function useAuth() {
         if (error || !data) {
           console.warn('[hydrateUser] ⚠️ no business', error);
           clearAuth();
+          setIsLoading(false);
           return;
         }
 
@@ -46,13 +47,17 @@ export function useAuth() {
         setIsLoading(false);
       }
     },
-    []
+    [clearAuth]
   );
 
   useEffect(() => {
+    let isMounted = true;
+
     const { data: subscription } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log('[auth] event:', event);
+
+        if (!isMounted) return;
 
         if (event === 'INITIAL_SESSION') {
           if (session?.user) {
@@ -63,7 +68,6 @@ export function useAuth() {
           }
         }
 
-        // ✅ Ahora maneja SIGNED_IN
         if (event === 'SIGNED_IN') {
           if (session?.user) {
             await hydrateUser(session.user);
@@ -78,18 +82,17 @@ export function useAuth() {
     );
 
     return () => {
+      isMounted = false;
       subscription.subscription.unsubscribe();
     };
-  }, [hydrateUser]);
+  }, [hydrateUser, clearAuth]);
 
-  // 🔐 LOGIN
-  const login = async (email: string, password: string) => {
+  const login = useCallback(async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     return !error;
-  };
+  }, []);
 
-  // 📝 REGISTER
-  const register = async (
+  const register = useCallback(async (
     businessName: string,
     email: string,
     password: string,
@@ -109,20 +112,21 @@ export function useAuth() {
       });
 
     if (businessError) {
+      console.error('Error creating business:', businessError);
       await supabase.auth.signOut();
       return false;
     }
 
+    await hydrateUser(data.user);
     return true;
-  };
+  }, [hydrateUser]);
 
-  // 🚪 LOGOUT
-  const logout = async () => {
+  const logout = useCallback(async () => {
     setIsLoading(true);
     await supabase.auth.signOut();
     clearAuth();
     setIsLoading(false);
-  };
+  }, [clearAuth]);
 
   return {
     user,
