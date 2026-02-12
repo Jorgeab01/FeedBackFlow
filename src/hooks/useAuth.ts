@@ -63,6 +63,13 @@ export function useAuth() {
           }
         }
 
+        // ✅ Ahora maneja SIGNED_IN
+        if (event === 'SIGNED_IN') {
+          if (session?.user) {
+            await hydrateUser(session.user);
+          }
+        }
+
         if (event === 'SIGNED_OUT') {
           clearAuth();
           setIsLoading(false);
