@@ -27,6 +27,28 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
   return children;
 }
 
+function PlansRoute({ 
+  children, 
+  hasRegistrationData 
+}: { 
+  children: React.ReactNode;
+  hasRegistrationData: boolean;
+}) {
+  const { isAuthenticated, isLoading } = useAuth();
+  
+  if (isLoading) return null;
+  
+  // ✅ Permitir acceso si:
+  // 1. Usuario autenticado (para cambiar plan)
+  // 2. Tiene datos de registro (flujo de registro)
+  if (isAuthenticated || hasRegistrationData) {
+    return children;
+  }
+  
+  // ❌ Bloquear acceso directo sin autenticación ni datos de registro
+  return <Navigate to="/register" replace />;
+}
+
 // 🔓 NUEVO: Guard para rutas públicas
 function PublicRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
@@ -102,6 +124,19 @@ export default function App() {
             </PublicRoute>
           }
         />
+        <Route
+          path="/plans"
+          element={
+            <PlansRoute hasRegistrationData={!!registrationData}>
+              <PlansPage
+                onSelectPlan={handleSelectPlan}
+                isAuthenticated={isAuthenticated}
+                user={user}
+                themeProps={themeProps}
+              />
+            </PlansRoute>
+          }
+        />
 
         {/* 🔐 Rutas privadas */}
         <Route
@@ -111,20 +146,6 @@ export default function App() {
               <DashboardPage
                 user={user!}
                 onLogout={logout}
-                themeProps={themeProps}
-              />
-            </PrivateRoute>
-          }
-        />
-
-        <Route
-          path="/plans"
-          element={
-            <PrivateRoute>
-              <PlansPage
-                onSelectPlan={handleSelectPlan}
-                isAuthenticated={true}
-                user={user!}
                 themeProps={themeProps}
               />
             </PrivateRoute>
