@@ -86,7 +86,10 @@ export default function App() {
     }
 
     setRegistrationData(null);
-    navigate('/dashboard', { replace: true });
+    
+    setTimeout(() => {
+      navigate('/dashboard', { replace: true });
+    }, 100);
   };
 
   // Loader global

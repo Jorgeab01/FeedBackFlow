@@ -37,41 +37,40 @@ export function PlansPage({ onSelectPlan, isAuthenticated, user, themeProps }: P
 
   // Elegir plan
   const handleSelectPlan = async (plan: PlanType) => {
-    setIsLoading(true)
+    setIsLoading(true);
 
     try {
       if (isAuthenticated && user) {
-        // Usuario autenticado: actualizar plan existente
         const { error } = await supabase
           .from('businesses')
           .update({ plan })
-          .eq('id', user.businessId)
+          .eq('id', user.businessId);
 
         if (error) {
-          toast.error('Error al actualizar el plan')
-          setIsLoading(false)
-          return
+          toast.error('Error al actualizar el plan');
+          setIsLoading(false);
+          return;
         }
 
         const messages = {
           free: 'Plan gratuito activado',
           basic: 'Plan Básico activado',
           pro: 'Plan Pro activado'
-        }
+        };
 
-        toast.success(messages[plan])
-        navigate('/dashboard')
+        toast.success(messages[plan]);
+        // Usar window.location para forzar recarga y actualizar estado
+        window.location.href = '/dashboard';
       } else {
-        // Flujo de registro: delegar al App.tsx
-        await onSelectPlan(plan)
+        await onSelectPlan(plan);
       }
     } catch (err) {
-      console.error('Error seleccionando plan:', err)
-      toast.error('Error al seleccionar el plan')
+      console.error('Error seleccionando plan:', err);
+      toast.error('Error al seleccionar el plan');
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   // Precios
   const prices = {

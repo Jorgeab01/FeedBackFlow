@@ -82,15 +82,15 @@ export function RegisterPage({ onSetRegistrationData, themeProps }: RegisterPage
       .from('businesses')
       .select('email')
       .eq('email', email.trim().toLowerCase())
-      .maybeSingle()
+      .maybeSingle();
     
-    if (error && error.code === 'PGRST116') {
-      // No se encontró el email (es bueno, significa que no existe)
-      return false
+    if (error) {
+      console.error('Error checking email:', error);
+      return true; // Asumir que existe para ser conservadores
     }
     
-    return !!data
-  }
+    return !!data;
+  };
 
   const handleContinue = async (e: React.FormEvent) => {
     e.preventDefault()

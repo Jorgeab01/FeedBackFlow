@@ -232,6 +232,14 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
   const { comments, isLoading, deleteComment, getStats } = useComments(user.businessId);
   const { business, getBusinessUrl } = useBusiness(user.businessId);
   
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
   // Tracking de uso mensual desde Supabase
   const { 
     remaining, 
