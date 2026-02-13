@@ -10,6 +10,7 @@ export function useAuth() {
   
   // Prevenir múltiples hidraciones simultáneas
   const isHydrating = useRef(false);
+  const lastHydrationTime = useRef<number>(0);
 
   const clearAuth = useCallback(() => {
     console.log('[clearAuth] 🧹 Clearing authentication');
@@ -18,14 +19,16 @@ export function useAuth() {
   }, []);
 
   const hydrateUser = useCallback(
-    async (authUser: { id: string; email?: string }) => {
-      // Prevenir hidraciones simultáneas
-      if (isHydrating.current) {
-        console.log('[hydrateUser] ⏭️ Already hydrating, skipping');
+    async (authUser: { id: string; email?: string }, force = false) => {
+      // Prevenir hidraciones muy frecuentes (dentro de 1 segundo)
+      const now = Date.now();
+      if (!force && isHydrating.current && (now - lastHydrationTime.current) < 1000) {
+        console.log('[hydrateUser] ⏭️ Skipping (too soon)');
         return;
       }
 
       isHydrating.current = true;
+      lastHydrationTime.current = now;
       console.log('[hydrateUser] 🚀 Starting hydration for:', authUser.id);
 
       try {
@@ -97,7 +100,7 @@ export function useAuth() {
         if (session?.user) {
           console.log('[auth] ✅ Session found, hydrating user...');
           if (mounted) {
-            await hydrateUser(session.user);
+            await hydrateUser(session.user, true);
           }
         } else {
           console.log('[auth] ℹ️ No active session');
@@ -147,7 +150,7 @@ export function useAuth() {
           console.log('[auth] ✅ SIGNED_IN event');
           if (session?.user) {
             setIsLoading(true);
-            await hydrateUser(session.user);
+            await hydrateUser(session.user, true);
             setIsLoading(false);
           }
         }
@@ -159,7 +162,8 @@ export function useAuth() {
 
         if (event === 'TOKEN_REFRESHED') {
           console.log('[auth] 🔄 TOKEN_REFRESHED event');
-          // La sesión sigue activa, no hacer nada
+          // ✅ NO hacer nada - la sesión sigue activa
+          // NO volver a hidratar, el usuario ya está cargado
         }
 
         if (event === 'USER_UPDATED') {
@@ -176,6 +180,43 @@ export function useAuth() {
       subscription.unsubscribe();
     };
   }, [initComplete, hydrateUser, clearAuth]);
+
+  // ✅ NUEVO: Manejar visibilidad de la página (cambio de pestaña)
+  useEffect(() => {
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState === 'visible') {
+        console.log('[auth] 👁️ Page became visible');
+        
+        // Si ya tenemos un usuario autenticado, solo verificar que la sesión siga válida
+        if (isAuthenticated && user) {
+          console.log('[auth] ✅ User already loaded, checking session validity...');
+          
+          try {
+            const { data: { session } } = await supabase.auth.getSession();
+            
+            if (!session) {
+              console.warn('[auth] ⚠️ Session lost while away');
+              clearAuth();
+              setIsLoading(false);
+            } else {
+              console.log('[auth] ✅ Session still valid');
+              // No hacer nada más, el usuario ya está cargado
+            }
+          } catch (err) {
+            console.error('[auth] ❌ Error checking session:', err);
+          }
+        }
+      } else {
+        console.log('[auth] 🙈 Page became hidden');
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [isAuthenticated, user, clearAuth]);
 
   const login = useCallback(async (email: string, password: string) => {
     console.log('[login] 🔐 Attempting login for:', email);
@@ -195,7 +236,7 @@ export function useAuth() {
 
       if (data.user) {
         console.log('[login] ✅ Login successful');
-        await hydrateUser(data.user);
+        await hydrateUser(data.user, true);
         setIsLoading(false);
         return true;
       }
@@ -253,7 +294,7 @@ export function useAuth() {
       }
 
       console.log('[register] ✅ Business created, hydrating user...');
-      await hydrateUser(data.user);
+      await hydrateUser(data.user, true);
       setIsLoading(false);
       return true;
     } catch (err) {

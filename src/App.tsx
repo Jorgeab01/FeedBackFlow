@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate, useNavigate, useParams } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 import { LoginPage } from '@/sections/LoginPage';
 import { RegisterPage } from '@/sections/RegisterPage';
@@ -36,27 +36,38 @@ function LoadingScreen() {
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading, user } = useAuth();
   const [showContent, setShowContent] = useState(false);
+  const hasShownContent = useRef(false);
 
   useEffect(() => {
-    // Solo mostrar contenido cuando todo esté listo
+    // Una vez que el contenido se muestra, no volver a ocultar por cambios de carga
     if (!isLoading && isAuthenticated && user) {
-      // Pequeño delay para asegurar que todo está renderizado
-      const timer = setTimeout(() => setShowContent(true), 50);
+      const timer = setTimeout(() => {
+        setShowContent(true);
+        hasShownContent.current = true;
+      }, 50);
       return () => clearTimeout(timer);
-    } else {
+    } else if (!isAuthenticated && !isLoading) {
+      // Solo ocultar si realmente perdimos la autenticación
       setShowContent(false);
+      hasShownContent.current = false;
     }
   }, [isLoading, isAuthenticated, user]);
 
-  console.log('[PrivateRoute]', { isLoading, isAuthenticated, hasUser: !!user, showContent });
+  console.log('[PrivateRoute]', { isLoading, isAuthenticated, hasUser: !!user, showContent, hasShownContent: hasShownContent.current });
 
-  // 1️⃣ Mostrar loader mientras carga
-  if (isLoading) {
+  // ✅ Si ya mostramos el contenido una vez y solo está refrescando token, no mostrar loader
+  if (hasShownContent.current && isAuthenticated && user) {
+    console.log('[PrivateRoute] ✅ Content already shown, keeping it visible');
+    return <>{children}</>;
+  }
+
+  // 1️⃣ Mostrar loader solo en carga inicial
+  if (isLoading && !hasShownContent.current) {
     return <LoadingScreen />;
   }
 
-  // 2️⃣ Si autenticado pero user es null, seguir esperando
-  if (isAuthenticated && !user) {
+  // 2️⃣ Si autenticado pero user es null (y no hemos mostrado contenido), seguir esperando
+  if (isAuthenticated && !user && !hasShownContent.current) {
     console.warn('[PrivateRoute] ⚠️ Authenticated but user is null, waiting...');
     return <LoadingScreen />;
   }
@@ -68,7 +79,7 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
   }
 
   // 4️⃣ Solo renderizar cuando todo está listo
-  if (!showContent) {
+  if (!showContent && !hasShownContent.current) {
     return <LoadingScreen />;
   }
 
@@ -151,7 +162,6 @@ export default function App() {
 
     setRegistrationData(null);
     
-    // Esperar un poco antes de navegar para asegurar que el estado se actualizó
     setTimeout(() => {
       navigate('/dashboard', { replace: true });
     }, 200);
