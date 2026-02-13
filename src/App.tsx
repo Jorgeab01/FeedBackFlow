@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate, useNavigate, useParams } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 import { LoginPage } from '@/sections/LoginPage';
 import { RegisterPage } from '@/sections/RegisterPage';
@@ -20,13 +20,79 @@ function FeedbackRoute() {
   return <FeedbackPage businessId={businessId} />;
 }
 
-function PrivateRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, isLoading } = useAuth();
-  if (isLoading) return null;
-  if (!isAuthenticated) return <Navigate to="/login" replace />;
-  return children;
+// Componente de Loading centralizado
+function LoadingScreen() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-gray-900 dark:to-gray-800">
+      <div className="flex flex-col items-center gap-4">
+        <div className="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+        <p className="text-gray-600 dark:text-gray-300 font-medium text-lg">Cargando...</p>
+      </div>
+    </div>
+  );
 }
 
+// 🔐 Ruta privada con protección robusta
+function PrivateRoute({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, isLoading, user } = useAuth();
+  const [showContent, setShowContent] = useState(false);
+
+  useEffect(() => {
+    // Solo mostrar contenido cuando todo esté listo
+    if (!isLoading && isAuthenticated && user) {
+      // Pequeño delay para asegurar que todo está renderizado
+      const timer = setTimeout(() => setShowContent(true), 50);
+      return () => clearTimeout(timer);
+    } else {
+      setShowContent(false);
+    }
+  }, [isLoading, isAuthenticated, user]);
+
+  console.log('[PrivateRoute]', { isLoading, isAuthenticated, hasUser: !!user, showContent });
+
+  // 1️⃣ Mostrar loader mientras carga
+  if (isLoading) {
+    return <LoadingScreen />;
+  }
+
+  // 2️⃣ Si autenticado pero user es null, seguir esperando
+  if (isAuthenticated && !user) {
+    console.warn('[PrivateRoute] ⚠️ Authenticated but user is null, waiting...');
+    return <LoadingScreen />;
+  }
+
+  // 3️⃣ Si no está autenticado, redirigir a login
+  if (!isAuthenticated) {
+    console.log('[PrivateRoute] ❌ Not authenticated, redirecting to login');
+    return <Navigate to="/login" replace />;
+  }
+
+  // 4️⃣ Solo renderizar cuando todo está listo
+  if (!showContent) {
+    return <LoadingScreen />;
+  }
+
+  console.log('[PrivateRoute] ✅ Rendering protected content');
+  return <>{children}</>;
+}
+
+// 🔓 Ruta pública (redirige a dashboard si ya está autenticado)
+function PublicRoute({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return <LoadingScreen />;
+  }
+
+  if (isAuthenticated) {
+    console.log('[PublicRoute] User authenticated, redirecting to dashboard');
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return <>{children}</>;
+}
+
+// 🎫 Ruta de planes (accesible con o sin auth)
 function PlansRoute({ 
   children, 
   hasRegistrationData 
@@ -35,30 +101,23 @@ function PlansRoute({
   hasRegistrationData: boolean;
 }) {
   const { isAuthenticated, isLoading } = useAuth();
-  
-  if (isLoading) return null;
-  
-  // ✅ Permitir acceso si:
-  // 1. Usuario autenticado (para cambiar plan)
-  // 2. Tiene datos de registro (flujo de registro)
-  if (isAuthenticated || hasRegistrationData) {
-    return children;
+
+  if (isLoading) {
+    return <LoadingScreen />;
   }
-  
-  // ❌ Bloquear acceso directo sin autenticación ni datos de registro
+
+  // Permitir si está autenticado O si tiene datos de registro
+  if (isAuthenticated || hasRegistrationData) {
+    return <>{children}</>;
+  }
+
+  // ❌ Sin autenticación ni datos de registro -> volver a register
+  console.log('[PlansRoute] No auth and no registration data, redirecting to register');
   return <Navigate to="/register" replace />;
 }
 
-// 🔓 NUEVO: Guard para rutas públicas
-function PublicRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, isLoading } = useAuth();
-  if (isLoading) return null;
-  if (isAuthenticated) return <Navigate to="/dashboard" replace />;
-  return children;
-}
-
 export default function App() {
-  const { user, isAuthenticated, isLoading, login, logout, register } = useAuth();
+  const { user, isAuthenticated, login, isLoading, logout, register } = useAuth();
   const themeProps = useTheme();
   const navigate = useNavigate();
 
@@ -70,7 +129,12 @@ export default function App() {
   } | null>(null);
 
   const handleSelectPlan = async (plan: PlanType) => {
-    if (!registrationData) return;
+    if (!registrationData) {
+      console.error('[handleSelectPlan] No registration data');
+      return;
+    }
+
+    console.log('[handleSelectPlan] Registering with plan:', plan);
 
     const ok = await register(
       registrationData.businessName,
@@ -87,19 +151,13 @@ export default function App() {
 
     setRegistrationData(null);
     
+    // Esperar un poco antes de navegar para asegurar que el estado se actualizó
     setTimeout(() => {
       navigate('/dashboard', { replace: true });
-    }, 100);
+    }, 200);
   };
 
-  // Loader global
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        Cargando…
-      </div>
-    );
-  }
+  console.log('[App] State:', { isLoading, isAuthenticated, hasUser: !!user });
 
   return (
     <>
@@ -107,7 +165,7 @@ export default function App() {
         {/* 🌍 Pública - siempre accesible */}
         <Route path="/feedback/:businessId" element={<FeedbackRoute />} />
 
-        {/* 🔓 Rutas públicas protegidas */}
+        {/* 🔓 Rutas públicas */}
         <Route
           path="/login"
           element={
@@ -116,6 +174,7 @@ export default function App() {
             </PublicRoute>
           }
         />
+        
         <Route
           path="/register"
           element={
@@ -127,6 +186,7 @@ export default function App() {
             </PublicRoute>
           }
         />
+        
         <Route
           path="/plans"
           element={
@@ -141,25 +201,45 @@ export default function App() {
           }
         />
 
-        {/* 🔐 Rutas privadas */}
+        {/* 🔐 Ruta privada - DASHBOARD */}
         <Route
           path="/dashboard"
           element={
             <PrivateRoute>
-              <DashboardPage
-                user={user!}
-                onLogout={logout}
-                themeProps={themeProps}
-              />
+              {user ? (
+                <DashboardPage
+                  user={user}
+                  onLogout={logout}
+                  themeProps={themeProps}
+                />
+              ) : (
+                <LoadingScreen />
+              )}
             </PrivateRoute>
           }
         />
 
-        {/* Fallback según estado */}
+        {/* 🏠 Ruta raíz */}
+        <Route 
+          path="/" 
+          element={
+            isLoading ? (
+              <LoadingScreen />
+            ) : (
+              <Navigate to={isAuthenticated ? "/dashboard" : "/login"} replace />
+            )
+          } 
+        />
+
+        {/* ⚠️ Fallback - cualquier otra ruta */}
         <Route 
           path="*" 
           element={
-            <Navigate to={isAuthenticated ? "/dashboard" : "/login"} replace />
+            isLoading ? (
+              <LoadingScreen />
+            ) : (
+              <Navigate to={isAuthenticated ? "/dashboard" : "/login"} replace />
+            )
           } 
         />
       </Routes>
