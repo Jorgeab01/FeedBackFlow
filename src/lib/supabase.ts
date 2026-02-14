@@ -11,6 +11,7 @@ if (!supabaseAnonKey) {
   throw new Error('❌ Falta VITE_SUPABASE_ANON_KEY');
 }
 
+
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: true,
@@ -25,14 +26,13 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
       'X-Client-Info': 'feedbackflow-web'
     }
   },
-  db: {
-    schema: 'public'
-  },
+  // IMPORTANTE: Desactivar realtime que puede causar aborts
   realtime: {
-    params: { eventsPerSecond: 10 }
+    params: { eventsPerSecond: 1 }
   }
 });
 
 if (import.meta.env.DEV) {
   console.log('✅ Supabase inicializado correctamente');
 }
+

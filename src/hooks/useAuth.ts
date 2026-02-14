@@ -6,247 +6,162 @@ export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [initComplete, setInitComplete] = useState(false);
   
-  // Prevenir múltiples hidraciones simultáneas
-  const isHydrating = useRef(false);
-  const lastHydrationTime = useRef<number>(0);
+  // Refs para controlar el estado interno sin causar re-renders
+  const isInitializing = useRef(false);
+  const retryCount = useRef(0);
+  const maxRetries = 3;
 
   const clearAuth = useCallback(() => {
-    console.log('[clearAuth] 🧹 Clearing authentication');
     setUser(null);
     setIsAuthenticated(false);
   }, []);
 
-  const hydrateUser = useCallback(
-    async (authUser: { id: string; email?: string }, force = false) => {
-      // Prevenir hidraciones muy frecuentes (dentro de 1 segundo)
-      const now = Date.now();
-      if (!force && isHydrating.current && (now - lastHydrationTime.current) < 1000) {
-        console.log('[hydrateUser] ⏭️ Skipping (too soon)');
-        return;
+  const hydrateUser = useCallback(async (authUser: { id: string; email?: string }): Promise<boolean> => {
+    try {
+      const { data, error } = await supabase
+        .from('businesses')
+        .select('id, name, plan')
+        .eq('owner_id', authUser.id)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error fetching business:', error);
+        return false;
       }
 
-      isHydrating.current = true;
-      lastHydrationTime.current = now;
-      console.log('[hydrateUser] 🚀 Starting hydration for:', authUser.id);
+      if (!data) {
+        console.warn('No business found for user');
+        return false;
+      }
 
-      try {
-        const { data, error } = await supabase
-          .from('businesses')
-          .select('id, name, plan')
-          .eq('owner_id', authUser.id)
-          .maybeSingle();
+      const newUser: User = {
+        id: authUser.id,
+        email: authUser.email || '',
+        businessId: data.id,
+        businessName: data.name,
+        plan: data.plan
+      };
 
-        if (error) {
-          console.error('[hydrateUser] ❌ Database error:', error);
+      setUser(newUser);
+      setIsAuthenticated(true);
+      retryCount.current = 0; // Resetear contador de retries al tener éxito
+      return true;
+    } catch (err) {
+      console.error('Exception in hydrateUser:', err);
+      return false;
+    }
+  }, []);
+
+  // Función de inicialización con retry
+  const initializeAuth = useCallback(async () => {
+    // Evitar múltiples inicializaciones simultáneas
+    if (isInitializing.current) {
+      console.log('[auth] Initialization already in progress, skipping...');
+      return;
+    }
+
+    isInitializing.current = true;
+    setIsLoading(true);
+
+    try {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      
+      if (error) {
+        throw error;
+      }
+
+      if (session?.user) {
+        const success = await hydrateUser(session.user);
+        if (!success) {
           clearAuth();
-          return;
         }
-
-        if (!data) {
-          console.warn('[hydrateUser] ⚠️ No business found for user');
-          clearAuth();
-          return;
-        }
-
-        console.log('[hydrateUser] ✅ Business found:', data.name);
-
-        const newUser: User = {
-          id: authUser.id,
-          email: authUser.email || '',
-          businessId: data.id,
-          businessName: data.name,
-          plan: data.plan
-        };
-
-        // ✅ Actualizar estados de forma atómica
-        setUser(newUser);
-        setIsAuthenticated(true);
-        
-        console.log('[hydrateUser] ✅ User hydrated successfully');
-      } catch (err) {
-        console.error('[hydrateUser] 💥 Exception:', err);
+      } else {
         clearAuth();
-      } finally {
-        isHydrating.current = false;
       }
-    },
-    [clearAuth]
-  );
+    } catch (err: any) {
+      // Manejar específicamente AbortError
+      if (err.name === 'AbortError' || err.message?.includes('aborted')) {
+        console.warn('[auth] Request aborted, retrying...', retryCount.current);
+        
+        if (retryCount.current < maxRetries) {
+          retryCount.current++;
+          // Esperar un poco antes de retry
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          isInitializing.current = false; // Permitir nueva intento
+          return initializeAuth(); // Retry recursivo
+        }
+      }
+      
+      console.error('[auth] Initialization error:', err);
+      clearAuth();
+    } finally {
+      setIsLoading(false);
+      // Delay antes de permitir nueva inicialización (evita dobles llamadas)
+      setTimeout(() => {
+        isInitializing.current = false;
+      }, 500);
+    }
+  }, [hydrateUser, clearAuth]);
 
-  // ✅ INICIALIZACIÓN: Verificar sesión existente INMEDIATAMENTE
   useEffect(() => {
     let mounted = true;
+    let authSubscription: { unsubscribe: () => void } | null = null;
 
-    const initialize = async () => {
-      console.log('[auth] 🔄 Initializing authentication...');
-      
-      try {
-        // 1️⃣ Obtener sesión actual de Supabase
-        const { data: { session }, error } = await supabase.auth.getSession();
-        
-        if (error) {
-          console.error('[auth] ❌ Error getting session:', error);
-          if (mounted) {
-            clearAuth();
-            setIsLoading(false);
-            setInitComplete(true);
-          }
-          return;
-        }
+    // Inicializar solo si no hay usuario cargado
+    if (!user && !isInitializing.current) {
+      initializeAuth();
+    }
 
-        // 2️⃣ Si hay sesión, hidratar usuario
-        if (session?.user) {
-          console.log('[auth] ✅ Session found, hydrating user...');
-          if (mounted) {
-            await hydrateUser(session.user, true);
-          }
-        } else {
-          console.log('[auth] ℹ️ No active session');
-          if (mounted) {
+    // Suscribirse a cambios de auth
+    const setupSubscription = () => {
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(
+        async (event, session) => {
+          if (!mounted) return;
+          
+          console.log('[auth] Event:', event);
+          
+          if (event === 'SIGNED_IN' && session?.user) {
+            await hydrateUser(session.user);
+          } else if (event === 'SIGNED_OUT') {
             clearAuth();
           }
+          // Ignorar INITIAL_SESSION y TOKEN_REFRESHED para evitar loops
         }
-      } catch (err) {
-        console.error('[auth] 💥 Initialization error:', err);
-        if (mounted) {
-          clearAuth();
-        }
-      } finally {
-        if (mounted) {
-          console.log('[auth] ✅ Initialization complete');
-          setIsLoading(false);
-          setInitComplete(true);
-        }
-      }
+      );
+      authSubscription = subscription;
     };
 
-    initialize();
+    // Delay la suscripción para evitar conflictos con la inicialización
+    const timer = setTimeout(setupSubscription, 100);
 
     return () => {
       mounted = false;
+      clearTimeout(timer);
+      authSubscription?.unsubscribe();
     };
-  }, [hydrateUser, clearAuth]);
-
-  // ✅ SUSCRIPCIÓN: Escuchar cambios de autenticación
-  useEffect(() => {
-    // Solo suscribir después de la inicialización
-    if (!initComplete) return;
-
-    console.log('[auth] 📡 Setting up auth state listener...');
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('[auth] 📡 Auth event:', event);
-
-        // Ignorar el evento INITIAL_SESSION ya que lo manejamos manualmente
-        if (event === 'INITIAL_SESSION') {
-          console.log('[auth] ⏭️ Skipping INITIAL_SESSION (already handled)');
-          return;
-        }
-
-        if (event === 'SIGNED_IN') {
-          console.log('[auth] ✅ SIGNED_IN event');
-          if (session?.user) {
-            setIsLoading(true);
-            await hydrateUser(session.user, true);
-            setIsLoading(false);
-          }
-        }
-
-        if (event === 'SIGNED_OUT') {
-          console.log('[auth] 👋 SIGNED_OUT event');
-          clearAuth();
-        }
-
-        if (event === 'TOKEN_REFRESHED') {
-          console.log('[auth] 🔄 TOKEN_REFRESHED event');
-          // ✅ NO hacer nada - la sesión sigue activa
-          // NO volver a hidratar, el usuario ya está cargado
-        }
-
-        if (event === 'USER_UPDATED') {
-          console.log('[auth] 📝 USER_UPDATED event');
-          if (session?.user) {
-            await hydrateUser(session.user);
-          }
-        }
-      }
-    );
-
-    return () => {
-      console.log('[auth] 🧹 Unsubscribing from auth changes');
-      subscription.unsubscribe();
-    };
-  }, [initComplete, hydrateUser, clearAuth]);
-
-  // ✅ NUEVO: Manejar visibilidad de la página (cambio de pestaña)
-  useEffect(() => {
-    const handleVisibilityChange = async () => {
-      if (document.visibilityState === 'visible') {
-        console.log('[auth] 👁️ Page became visible');
-        
-        // Si ya tenemos un usuario autenticado, solo verificar que la sesión siga válida
-        if (isAuthenticated && user) {
-          console.log('[auth] ✅ User already loaded, checking session validity...');
-          
-          try {
-            const { data: { session } } = await supabase.auth.getSession();
-            
-            if (!session) {
-              console.warn('[auth] ⚠️ Session lost while away');
-              clearAuth();
-              setIsLoading(false);
-            } else {
-              console.log('[auth] ✅ Session still valid');
-              // No hacer nada más, el usuario ya está cargado
-            }
-          } catch (err) {
-            console.error('[auth] ❌ Error checking session:', err);
-          }
-        }
-      } else {
-        console.log('[auth] 🙈 Page became hidden');
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, [isAuthenticated, user, clearAuth]);
+  }, [initializeAuth, hydrateUser, clearAuth, user]);
 
   const login = useCallback(async (email: string, password: string) => {
-    console.log('[login] 🔐 Attempting login for:', email);
     setIsLoading(true);
-    
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({ 
-        email, 
-        password 
-      });
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       
       if (error) {
-        console.error('[login] ❌ Login error:', error.message);
-        setIsLoading(false);
+        console.error('Login error:', error);
         return false;
       }
 
       if (data.user) {
-        console.log('[login] ✅ Login successful');
-        await hydrateUser(data.user, true);
-        setIsLoading(false);
+        await hydrateUser(data.user);
         return true;
       }
-
-      setIsLoading(false);
       return false;
     } catch (err) {
-      console.error('[login] 💥 Exception:', err);
-      setIsLoading(false);
+      console.error('Login exception:', err);
       return false;
+    } finally {
+      setIsLoading(false);
     }
   }, [hydrateUser]);
 
@@ -256,25 +171,14 @@ export function useAuth() {
     password: string,
     plan: PlanType
   ) => {
-    console.log('[register] 📝 Attempting registration for:', email);
     setIsLoading(true);
-
     try {
       const { data, error } = await supabase.auth.signUp({ email, password });
       
-      if (error) {
-        console.error('[register] ❌ Signup error:', error.message);
-        setIsLoading(false);
+      if (error || !data.user) {
+        console.error('Signup error:', error);
         return false;
       }
-
-      if (!data.user) {
-        console.error('[register] ❌ No user returned');
-        setIsLoading(false);
-        return false;
-      }
-
-      console.log('[register] ✅ User created, creating business...');
 
       const { error: businessError } = await supabase
         .from('businesses')
@@ -287,35 +191,28 @@ export function useAuth() {
         });
 
       if (businessError) {
-        console.error('[register] ❌ Business creation error:', businessError.message);
+        console.error('Business creation error:', businessError);
         await supabase.auth.signOut();
-        setIsLoading(false);
         return false;
       }
 
-      console.log('[register] ✅ Business created, hydrating user...');
-      await hydrateUser(data.user, true);
-      setIsLoading(false);
+      await hydrateUser(data.user);
       return true;
     } catch (err) {
-      console.error('[register] 💥 Exception:', err);
-      setIsLoading(false);
+      console.error('Register exception:', err);
       return false;
+    } finally {
+      setIsLoading(false);
     }
   }, [hydrateUser]);
 
   const logout = useCallback(async () => {
-    console.log('[logout] 👋 Logging out...');
-    setIsLoading(true);
-    
     try {
       await supabase.auth.signOut();
       clearAuth();
     } catch (err) {
-      console.error('[logout] ❌ Error during logout:', err);
+      console.error('Logout error:', err);
       clearAuth();
-    } finally {
-      setIsLoading(false);
     }
   }, [clearAuth]);
 

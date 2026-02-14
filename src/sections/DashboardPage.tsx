@@ -44,7 +44,8 @@ import {
   Mail,
   AlertCircle,
   Crown,
-  Zap
+  Zap,
+  ArrowRightLeft
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -299,6 +300,9 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
   
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
+
+  // NUEVO: Estado para cambio de plan
+  const [isChangingPlan, setIsChangingPlan] = useState(false);
 
   // Verificar permisos según plan
   const canExport = limits.canExport;
@@ -1209,6 +1213,50 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
       </div>
     );
   }, []);
+
+  // NUEVO: Función para cambiar de plan - AHORA PERMITE CUALQUIER CAMBIO
+  const handleChangePlan = async (newPlan: PlanType) => {
+    if (newPlan === user.plan) {
+      toast.info('Ya tienes este plan activo');
+      return;
+    }
+
+    setIsChangingPlan(true);
+    
+    try {
+      // Actualizar directamente en Supabase - sin restricciones de Stripe
+      const { error } = await supabase
+        .from('businesses')
+        .update({ 
+          plan: newPlan, 
+          updated_at: new Date().toISOString() 
+        })
+        .eq('id', user.businessId);
+
+      if (error) throw error;
+      
+      const planNames = {
+        free: 'Gratis',
+        basic: 'Básico',
+        pro: 'Pro'
+      };
+      
+      toast.success(`Plan cambiado a ${planNames[newPlan]}`, {
+        description: 'Recargando para aplicar cambios...'
+      });
+      
+      // Recargar después de 1 segundo para aplicar cambios
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+      
+    } catch (err) {
+      console.error('Error cambiando plan:', err);
+      toast.error('Error al cambiar el plan. Intenta de nuevo.');
+    } finally {
+      setIsChangingPlan(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
@@ -2596,71 +2644,143 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                     basic: '5.99€', 
                     pro: '9.99€'
                   };
+                  const planDescriptions = {
+                    free: '30 comentarios/mes',
+                    basic: '200 comentarios/mes + CSV',
+                    pro: 'Ilimitado + Estadísticas'
+                  };
                   const isCurrent = user.plan === plan;
                   
                   return (
                     <div 
                       key={plan}
                       className={`
-                        p-4 rounded-lg border-2 cursor-pointer transition-all
+                        p-4 rounded-lg border-2 transition-all relative
                         ${isCurrent 
                           ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20' 
-                          : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
+                          : 'border-gray-200 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-700 cursor-pointer'
                         }
-                        ${plan === 'free' ? 'opacity-75 cursor-default' : ''}
                       `}
+                      onClick={() => !isCurrent && handleChangePlan(plan)}
                     >
                       <div className="flex items-center justify-between">
-                        <div>
-                          <h3 className="font-semibold">{planNames[plan]}</h3>
-                          <p className="text-sm text-gray-500">
-                            {plan === 'free' ? '30 comentarios/mes' : 
-                             plan === 'basic' ? '200 comentarios/mes + CSV' : 
-                             'Ilimitado + Estadísticas'}
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3">
+                            <h3 className="font-semibold text-gray-900 dark:text-white">{planNames[plan]}</h3>
+                            {isCurrent && (
+                              <Badge className="bg-indigo-600">
+                                <Check className="w-3 h-3 mr-1" />
+                                Actual
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                            {planDescriptions[plan]}
+                          </p>
+                          <p className="text-lg font-bold text-gray-900 dark:text-white mt-2">
+                            {planPrices[plan]}
+                            <span className="text-sm font-normal text-gray-500 dark:text-gray-400">/mes</span>
                           </p>
                         </div>
-                        <div className="text-right">
-                          <p className="font-bold">{planPrices[plan]}/mes</p>
-                          {isCurrent && (
-                            <Badge className="bg-indigo-600 mt-1">
-                              <Check className="w-3 h-3 mr-1" />
-                              Actual
-                            </Badge>
-                          )}
-                        </div>
+                        
+                        {!isCurrent && (
+                          <Button 
+                            size="sm" 
+                            className="gap-2 bg-indigo-600 hover:bg-indigo-700"
+                            disabled={isChangingPlan}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleChangePlan(plan);
+                            }}
+                          >
+                            {isChangingPlan ? (
+                              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                            ) : (
+                              <>
+                                <ArrowRightLeft className="w-4 h-4" />
+                                Seleccionar
+                              </>
+                            )}
+                          </Button>
+                        )}
                       </div>
                     </div>
                   );
                 })}
               </div>
-              <p className="text-sm text-gray-500 mt-4">
-                Nota: Para cambiar al plan Gratis, contacta con soporte.
-              </p>
+              
+              <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
+                <p className="text-sm text-blue-800 dark:text-blue-200">
+                  <AlertCircle className="w-4 h-4 inline mr-2" />
+                  <strong>Sin compromiso:</strong> Cambia de plan cuando quieras.
+                </p>
+              </div>
             </TabsContent>
 
             <TabsContent value="billing" className="space-y-4 mt-4">
+              {/* TODO: INTEGRACIÓN COMPLETA CON STRIPE AQUÍ */}
+              {/* 
+                IMPLEMENTACIÓN RECOMENDADA:
+                1. Usar Stripe Elements para mostrar/gestionar tarjetas guardadas
+                2. Mostrar historial de facturas desde Stripe
+                3. Permitir cambiar método de pago por defecto
+                4. Mostrar estado de suscripción (activa, cancelada, etc.)
+                
+                ENDPOINTS NECESARIOS:
+                - POST /api/stripe/create-checkout-session (para upgrades)
+                - POST /api/stripe/change-plan (para cambios entre planes pagos)
+                - POST /api/stripe/cancel-subscription (para cancelaciones)
+                - GET /api/stripe/invoices (para historial)
+              */}
+              
               <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
                 <div className="flex items-center gap-3 mb-4">
                   <CreditCard className="w-8 h-8 text-indigo-600" />
                   <div>
                     <h3 className="font-semibold">Método de pago</h3>
-                    <p className="text-sm text-gray-500">Tarjeta terminada en 4242</p>
+                    <p className="text-sm text-gray-500">
+                      {user.plan === 'free' 
+                        ? 'No se requiere método de pago para el plan Gratis' 
+                        : 'Gestión de pagos no configurada'}
+                    </p>
                   </div>
                 </div>
                 
-                <div className="space-y-3">
-                  <div>
-                    <Label className="text-xs">Titular de la tarjeta</Label>
-                    <Input 
-                      value="Nombre Titular" 
-                      disabled={user.plan === 'free'}
-                      className="mt-1"
-                    />
+                {user.plan !== 'free' && (
+                  <div className="space-y-3">
+                    <div className="bg-amber-50 dark:bg-amber-900/20 p-3 rounded-lg border border-amber-200 dark:border-amber-800">
+                      <p className="text-sm text-amber-800 dark:text-amber-200">
+                        <AlertCircle className="w-4 h-4 inline mr-2" />
+                        Aquí iría la integración con Stripe para gestionar tus pagos.
+                      </p>
+                    </div>
+                    
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="w-full mt-2"
+                      disabled
+                    >
+                      Gestionar método de pago (Próximamente)
+                    </Button>
                   </div>
-                  <Button variant="outline" size="sm" className="w-full mt-2" disabled={user.plan === 'free'}>
-                    Actualizar método de pago
-                  </Button>
-                </div>
+                )}
+                
+                {user.plan === 'free' && (
+                  <div className="text-center py-4">
+                    <p className="text-sm text-gray-500 mb-4">
+                      Actualiza a un plan de pago para gestionar tu método de pago
+                    </p>
+                    <Button 
+                      size="sm" 
+                      onClick={() => setSettingsTab('plan')}
+                      className="gap-2"
+                    >
+                      <Crown className="w-4 h-4" />
+                      Ver planes de pago
+                    </Button>
+                  </div>
+                )}
               </div>
             </TabsContent>
 
