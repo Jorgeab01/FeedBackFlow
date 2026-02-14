@@ -6,6 +6,7 @@ import { RegisterPage } from '@/sections/RegisterPage';
 import { PlansPage } from '@/sections/PlansPage';
 import { DashboardPage } from '@/sections/DashboardPage';
 import { FeedbackPage } from '@/sections/FeedbackPage';
+import { MaintenancePage } from '@/sections/MaintenancePage';
 
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
@@ -131,6 +132,17 @@ export default function App() {
   const { user, isAuthenticated, login, isLoading, logout, register } = useAuth();
   const themeProps = useTheme();
   const navigate = useNavigate();
+
+  const isMaintenanceMode = import.meta.env.VITE_MAINTENANCE_MODE === 'true';
+
+  if (isMaintenanceMode) {
+    return (
+      <>
+        <MaintenancePage />
+        <Toaster />
+      </>
+    );
+  }
 
   // Flujo de registro
   const [registrationData, setRegistrationData] = useState<{
