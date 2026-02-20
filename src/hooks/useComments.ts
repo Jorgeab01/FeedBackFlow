@@ -46,25 +46,29 @@ export function useComments(businessId?: string) {
     async (text: string, satisfaction: SatisfactionLevel) => {
       if (!businessId) return
 
-      const { data, error } = await supabase
+      const newCommentData = {
+        business_id: businessId,
+        text,
+        satisfaction
+      }
+
+      const { error } = await supabase
         .from('comments')
-        .insert({
-          business_id: businessId,
-          text,
-          satisfaction
-        })
-        .select()
-        .single()
+        .insert(newCommentData)
 
-      if (error || !data) return
+      if (error) {
+        console.error('Error inserting comment:', error)
+        return
+      }
 
+      // Optimistic UI update - we don't need to read back from DB (which requires auth)
       setComments(prev => [
         {
-          id: data.id,
-          text: data.text,
-          satisfaction: data.satisfaction,
-          createdAt: data.created_at,
-          businessId: data.business_id
+          id: crypto.randomUUID(), // Temp ID for UI
+          text: newCommentData.text,
+          satisfaction: newCommentData.satisfaction,
+          createdAt: new Date().toISOString(),
+          businessId: newCommentData.business_id
         },
         ...prev
       ])
