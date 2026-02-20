@@ -6,7 +6,7 @@ export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  
+
   // Refs para controlar el estado interno sin causar re-renders
   const isInitializing = useRef(false);
   const retryCount = useRef(0);
@@ -66,7 +66,7 @@ export function useAuth() {
 
     try {
       const { data: { session }, error } = await supabase.auth.getSession();
-      
+
       if (error) {
         throw error;
       }
@@ -83,7 +83,7 @@ export function useAuth() {
       // Manejar específicamente AbortError
       if (err.name === 'AbortError' || err.message?.includes('aborted')) {
         console.warn('[auth] Request aborted, retrying...', retryCount.current);
-        
+
         if (retryCount.current < maxRetries) {
           retryCount.current++;
           // Esperar un poco antes de retry
@@ -92,7 +92,7 @@ export function useAuth() {
           return initializeAuth(); // Retry recursivo
         }
       }
-      
+
       console.error('[auth] Initialization error:', err);
       clearAuth();
     } finally {
@@ -118,9 +118,9 @@ export function useAuth() {
       const { data: { subscription } } = supabase.auth.onAuthStateChange(
         async (event, session) => {
           if (!mounted) return;
-          
+
           console.log('[auth] Event:', event);
-          
+
           if (event === 'SIGNED_IN' && session?.user) {
             await hydrateUser(session.user);
           } else if (event === 'SIGNED_OUT') {
@@ -146,7 +146,7 @@ export function useAuth() {
     setIsLoading(true);
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      
+
       if (error) {
         console.error('Login error:', error);
         return false;
@@ -174,7 +174,7 @@ export function useAuth() {
     setIsLoading(true);
     try {
       const { data, error } = await supabase.auth.signUp({ email, password });
-      
+
       if (error || !data.user) {
         console.error('Signup error:', error);
         return false;
@@ -208,11 +208,16 @@ export function useAuth() {
 
   const logout = useCallback(async () => {
     try {
-      await supabase.auth.signOut();
-      clearAuth();
+      // Usar Promise.race para evitar que signOut se quede colgado (deadlock conocido en Supabase Auth)
+      await Promise.race([
+        supabase.auth.signOut(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Logout timeout')), 1500))
+      ]);
     } catch (err) {
-      console.error('Logout error:', err);
+      console.warn('Logout warning:', err);
+    } finally {
       clearAuth();
+      window.location.href = '/login';
     }
   }, [clearAuth]);
 
