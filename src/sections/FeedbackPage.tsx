@@ -8,10 +8,10 @@ import { useComments } from '@/hooks/useComments';
 import type { SatisfactionLevel, PlanType } from '@/types';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
-import { 
-  Store, 
-  Send, 
-  CheckCircle, 
+import {
+  Store,
+  Send,
+  CheckCircle,
   Star,
   Moon,
   Sun,
@@ -57,7 +57,7 @@ function useMonthlyUsage(businessId: string, plan: PlanType | undefined) {
 
       const count = data?.comment_count || 0;
       const limit = limits[plan] ?? 30;
-      
+
       setIsLimitReached(limit !== Infinity && count >= limit);
     } catch (err) {
       console.error('Error checking usage:', err);
@@ -76,13 +76,13 @@ function useMonthlyUsage(businessId: string, plan: PlanType | undefined) {
 export function FeedbackPage({ businessId }: FeedbackPageProps) {
   const { business, isLoading: businessLoading } = useBusiness(businessId);
   const { addComment } = useComments(businessId);
-  
+
   // Tracking invisible - no se muestra en la UI
   const { isLimitReached } = useMonthlyUsage(
-    businessId, 
+    businessId,
     business?.plan || 'free'
   );
-  
+
   const [selectedSatisfaction, setSelectedSatisfaction] = useState<SatisfactionLevel | null>(null);
   const [comment, setComment] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -93,11 +93,11 @@ export function FeedbackPage({ businessId }: FeedbackPageProps) {
   useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     setIsDark(mediaQuery.matches);
-    
+
     const handleChange = (e: MediaQueryListEvent) => {
       setIsDark(e.matches);
     };
-    
+
     mediaQuery.addEventListener('change', handleChange);
     return () => mediaQuery.removeEventListener('change', handleChange);
   }, []);
@@ -129,7 +129,7 @@ export function FeedbackPage({ businessId }: FeedbackPageProps) {
         console.error('Error saving comment:', error);
       }
     }
-    
+
     // Siempre mostrar éxito, independientemente de si se guardó o no
     setIsSubmitting(false);
     setIsSubmitted(true);
@@ -161,9 +161,8 @@ export function FeedbackPage({ businessId }: FeedbackPageProps) {
   }
 
   return (
-    <div className={`min-h-screen py-8 px-4 transition-colors duration-300 ${
-      isDark ? 'dark bg-gray-900' : 'bg-gradient-to-br from-indigo-50 via-white to-purple-50'
-    }`}>
+    <div className={`min-h-screen py-8 px-4 transition-colors duration-300 ${isDark ? 'dark bg-gray-900' : 'bg-gradient-to-br from-indigo-50 via-white to-purple-50'
+      }`}>
       {/* Theme Toggle */}
       <button
         onClick={() => setIsDark(!isDark)}
@@ -178,12 +177,12 @@ export function FeedbackPage({ businessId }: FeedbackPageProps) {
 
       <div className="max-w-lg mx-auto">
         {/* Header */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           className="text-center mb-8"
         >
-          <motion.div 
+          <motion.div
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             transition={{ type: 'spring', stiffness: 200, delay: 0.2 }}
@@ -191,7 +190,7 @@ export function FeedbackPage({ businessId }: FeedbackPageProps) {
           >
             <Store className="w-10 h-10 text-white" />
           </motion.div>
-          <motion.h1 
+          <motion.h1
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.3 }}
@@ -199,7 +198,7 @@ export function FeedbackPage({ businessId }: FeedbackPageProps) {
           >
             {business.name}
           </motion.h1>
-          <motion.p 
+          <motion.p
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.4 }}
@@ -210,7 +209,44 @@ export function FeedbackPage({ businessId }: FeedbackPageProps) {
         </motion.div>
 
         <AnimatePresence mode="wait">
-          {!isSubmitted ? (
+          {isLimitReached ? (
+            <motion.div
+              key="limit"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3 }}
+            >
+              <Card className="border-0 shadow-2xl bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm overflow-hidden">
+                <CardContent className="p-8 sm:p-12 text-center">
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
+                    className="w-24 h-24 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-6"
+                  >
+                    <Store className="w-12 h-12 text-gray-400 dark:text-gray-500" />
+                  </motion.div>
+                  <motion.h2
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.3 }}
+                    className="text-2xl font-bold text-gray-900 dark:text-white mb-3"
+                  >
+                    Límite alcanzado
+                  </motion.h2>
+                  <motion.p
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.4 }}
+                    className="text-gray-600 dark:text-gray-300 mb-8"
+                  >
+                    Este negocio no acepta más reseñas por ahora.
+                  </motion.p>
+                </CardContent>
+              </Card>
+            </motion.div>
+          ) : !isSubmitted ? (
             <motion.div
               key="form"
               initial={{ opacity: 0, y: 20 }}
@@ -220,7 +256,7 @@ export function FeedbackPage({ businessId }: FeedbackPageProps) {
             >
               <Card className="border-0 shadow-2xl bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm overflow-hidden">
                 <CardContent className="p-6 sm:p-8">
-                  
+
                   {/* Satisfaction Selector - Siempre habilitado */}
                   <div className="mb-8">
                     <label className="block text-center text-lg font-semibold text-gray-900 dark:text-white mb-6">
