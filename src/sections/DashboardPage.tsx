@@ -7,22 +7,22 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/lib/supabase'
 
-import { 
-  LogOut, 
-  QrCode, 
-  MessageSquare, 
-  TrendingUp, 
-  Users, 
-  Smile, 
-  Meh, 
+import {
+  LogOut,
+  QrCode,
+  MessageSquare,
+  TrendingUp,
+  Users,
+  Smile,
+  Meh,
   Frown,
   Download,
   Copy,
   Star,
   Palette,
-  Settings, 
-  CreditCard, 
-  Trash2, 
+  Settings,
+  CreditCard,
+  Trash2,
   AlertTriangle,
   Save,
   X,
@@ -45,7 +45,8 @@ import {
   AlertCircle,
   Crown,
   Zap,
-  ArrowRightLeft
+  ArrowRightLeft,
+  ExternalLink
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -70,15 +71,15 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { 
-  format, 
-  subDays, 
-  isWithinInterval, 
-  startOfDay, 
-  endOfDay, 
-  parseISO, 
-  eachDayOfInterval, 
-  isSameDay, 
+import {
+  format,
+  subDays,
+  isWithinInterval,
+  startOfDay,
+  endOfDay,
+  parseISO,
+  eachDayOfInterval,
+  isSameDay,
   startOfMonth,
   addMonths,
   subMonths,
@@ -162,66 +163,66 @@ const statsDatePresets = [
 
 // Hook para tracking de uso mensual desde Supabase
 function useMonthlyUsage(businessId: string, plan: PlanType) {
-  const [usage, setUsage] = useState({ 
-    count: 0, 
-    month: new Date().getMonth(), 
-    year: new Date().getFullYear() 
+  const [usage, setUsage] = useState({
+    count: 0,
+    month: new Date().getMonth(),
+    year: new Date().getFullYear()
   });
   const [isLoading, setIsLoading] = useState(true);
   const limits = PLAN_LIMITS[plan];
 
   const fetchUsage = useCallback(async () => {
-  if (!businessId) {
-    setIsLoading(false);
-    return;
-  }
-
-  const currentDate = new Date();
-  const year = currentDate.getFullYear();
-  const month = currentDate.getMonth() + 1; // 1-12 para PostgreSQL
-
-  try {
-    // Usar maybeSingle() en lugar de single() para evitar error si no existe
-    const { data, error } = await supabase
-      .from('monthly_usage')
-      .select('comment_count')
-      .eq('business_id', businessId)
-      .eq('year', year)
-      .eq('month', month)
-      .maybeSingle(); // ✅ No da error 406 si no hay fila
-
-    if (error) {
-      console.error('Error fetching usage:', error);
-      // Si es 406, probablemente la tabla no existe o no hay permisos
-      if (error.code === '406') {
-        console.warn('Tabla monthly_usage no encontrada o sin permisos');
-      }
+    if (!businessId) {
+      setIsLoading(false);
+      return;
     }
 
-    setUsage({
-      count: data?.comment_count || 0,
-      month: currentDate.getMonth(), // 0-11 para UI
-      year: year
-    });
-  } catch (err) {
-    console.error('Error in fetchUsage:', err);
-  } finally {
-    setIsLoading(false);
-  }
-}, [businessId]);
+    const currentDate = new Date();
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth() + 1; // 1-12 para PostgreSQL
+
+    try {
+      // Usar maybeSingle() en lugar de single() para evitar error si no existe
+      const { data, error } = await supabase
+        .from('monthly_usage')
+        .select('comment_count')
+        .eq('business_id', businessId)
+        .eq('year', year)
+        .eq('month', month)
+        .maybeSingle(); // ✅ No da error 406 si no hay fila
+
+      if (error) {
+        console.error('Error fetching usage:', error);
+        // Si es 406, probablemente la tabla no existe o no hay permisos
+        if (error.code === '406') {
+          console.warn('Tabla monthly_usage no encontrada o sin permisos');
+        }
+      }
+
+      setUsage({
+        count: data?.comment_count || 0,
+        month: currentDate.getMonth(), // 0-11 para UI
+        year: year
+      });
+    } catch (err) {
+      console.error('Error in fetchUsage:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [businessId]);
 
   useEffect(() => {
     fetchUsage();
   }, [fetchUsage, businessId]);
 
-  const remaining = limits.maxCommentsPerMonth === Infinity 
-    ? Infinity 
+  const remaining = limits.maxCommentsPerMonth === Infinity
+    ? Infinity
     : Math.max(0, limits.maxCommentsPerMonth - usage.count);
-    
-  const percentage = limits.maxCommentsPerMonth === Infinity 
-    ? 0 
+
+  const percentage = limits.maxCommentsPerMonth === Infinity
+    ? 0
     : Math.min(100, (usage.count / limits.maxCommentsPerMonth) * 100);
-    
+
   const isLimitReached = limits.maxCommentsPerMonth !== Infinity && usage.count >= limits.maxCommentsPerMonth;
   const isNearLimit = limits.maxCommentsPerMonth !== Infinity && percentage >= 80 && percentage < 100;
 
@@ -232,7 +233,7 @@ function useMonthlyUsage(businessId: string, plan: PlanType) {
 export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps) {
   const { comments, isLoading, deleteComment, getStats } = useComments(user.businessId);
   const { business, getBusinessUrl } = useBusiness(user.businessId);
-  
+
   if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -242,11 +243,11 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
   }
 
   // Tracking de uso mensual desde Supabase
-  const { 
-    remaining, 
-    percentage, 
-    isLimitReached, 
-    isNearLimit, 
+  const {
+    remaining,
+    percentage,
+    isLimitReached,
+    isNearLimit,
     limits
   } = useMonthlyUsage(user.businessId, user.plan);
 
@@ -259,7 +260,7 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
   const [showSettings, setShowSettings] = useState(false);
   const [settingsTab, setSettingsTab] = useState('general');
   const [businessName, setBusinessName] = useState(user.businessName);
-  
+
   // Estados para confirmación de eliminar comentario
   const [commentToDelete, setCommentToDelete] = useState<string | null>(null);
   const [showDeleteCommentDialog, setShowDeleteCommentDialog] = useState(false);
@@ -277,27 +278,26 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
     from: undefined,
     to: undefined,
   }));
-  
+
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showCustomDatePicker, setShowCustomDatePicker] = useState(false);
   const [showAdvancedStats, setShowAdvancedStats] = useState(true);
   const [isFiltering, setIsFiltering] = useState(false);
 
   // Estados de formularios
-  const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
   const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [passwordErrors, setPasswordErrors] = useState<Record<string, string>>({});
-  
+
   const [newEmail, setNewEmail] = useState('');
   const [emailPassword, setEmailPassword] = useState('');
   const [showEmailForm, setShowEmailForm] = useState(false);
-  
+
   const [showBusinessName, setShowBusinessName] = useState(true);
   const [isCustomPhrase, setIsCustomPhrase] = useState(false);
   const [customPhrase, setCustomPhrase] = useState('');
-  
+
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
 
@@ -322,16 +322,16 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
   // Calcular bounds de fechas
   const dateBounds = useMemo(() => {
     if (!comments || comments.length === 0) return null;
-    
+
     const validDates = comments
       .map(c => new Date(c.createdAt))
       .filter(d => !isNaN(d.getTime()));
-    
+
     if (validDates.length === 0) return null;
-    
+
     const minDate = new Date(Math.min(...validDates.map(d => d.getTime())));
     const maxDate = new Date(Math.max(...validDates.map(d => d.getTime())));
-    
+
     return {
       minDate: startOfDay(minDate),
       maxDate: endOfDay(maxDate)
@@ -342,12 +342,12 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
   const filteredComments = useMemo(() => {
     if (!dateRange.from && !dateRange.to) return comments || [];
     if (!comments) return [];
-    
+
     return comments.filter(comment => {
       try {
         const commentDate = new Date(comment.createdAt);
         if (isNaN(commentDate.getTime())) return false;
-        
+
         if (dateRange.from && dateRange.to) {
           return isWithinInterval(commentDate, {
             start: startOfDay(dateRange.from),
@@ -373,7 +373,7 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
     const sad = filteredComments.filter(c => c.satisfaction === 'sad').length;
     const happyPercentage = total > 0 ? Math.round((happy / total) * 100) : 0;
     const satisfactionScore = total > 0 ? Math.round((happy * 5 + neutral * 3 + sad * 1) / total) : 0;
-    
+
     return { total, happy, neutral, sad, happyPercentage, satisfactionScore };
   }, [filteredComments]);
 
@@ -384,7 +384,7 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
 
   const handleSaveName = useCallback(async () => {
     const trimmedName = businessName.trim();
-    
+
     // Validaciones frontend (coinciden con tu CHECK constraint)
     if (trimmedName === '') {
       toast.error('El nombre no puede estar vacío');
@@ -402,12 +402,12 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
     }
 
     setIsSavingName(true);
-    
+
     try {
       // Actualización directa en Supabase
       const { error } = await supabase
         .from('businesses')
-        .update({ 
+        .update({
           name: trimmedName,
           updated_at: new Date().toISOString() // Actualizamos el timestamp manualmente
         })
@@ -416,7 +416,7 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
 
       if (error) {
         console.error('Error actualizando negocio:', error);
-        
+
         // Manejo específico de errores
         if (error.code === '23514') { // check_violation
           toast.error('El nombre debe tener entre 3 y 30 caracteres');
@@ -429,11 +429,11 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
       }
 
       toast.success('Nombre actualizado correctamente');
-      
+
       setTimeout(() => {
         window.location.reload();
       }, 500);
-      
+
     } catch (err) {
       console.error('Error inesperado:', err);
       toast.error('Error inesperado al guardar');
@@ -450,18 +450,12 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
     }, 10000);
 
     setIsChangingPassword(true);
-    
+
     try {
       const errors: Record<string, string> = {}
 
-      if (!currentPassword) {
-        errors.currentPassword = 'La contraseña actual es obligatoria'
-      }
       if (!newPassword || newPassword.length < 6) {
         errors.newPassword = 'Debe tener al menos 6 caracteres'
-      }
-      if (newPassword === currentPassword) {
-        errors.newPassword = 'Debe ser diferente a la actual'
       }
       if (newPassword !== confirmNewPassword) {
         errors.confirmNewPassword = 'Las contraseñas no coinciden'
@@ -475,24 +469,13 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
 
       // Verificar sesión primero
       const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-      
+
       if (sessionError || !session?.user?.email) {
         toast.error('Sesión expirada. Inicia sesión de nuevo.')
         return
       }
 
-      // Reautenticar
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: session.user.email,
-        password: currentPassword
-      })
-
-      if (signInError) {
-        toast.error('Contraseña actual incorrecta')
-        return
-      }
-
-      // Cambiar contraseña
+      // Cambiar contraseña directamente usando la sesión activa
       const { error } = await supabase.auth.updateUser({
         password: newPassword
       })
@@ -503,17 +486,12 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
       }
 
       toast.success('Contraseña actualizada correctamente')
-      
+
       // Limpiar todo
-      setCurrentPassword('')
       setNewPassword('')
       setConfirmNewPassword('')
       setShowPasswordForm(false)
       setPasswordErrors({})
-      
-      // Opcional: cerrar sesión y pedir login de nuevo (más seguro)
-      // await supabase.auth.signOut()
-      // onLogout()
 
     } catch (err: any) {
       console.error('Error cambiando password:', err)
@@ -522,7 +500,7 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
       clearTimeout(timeoutId); // Limpiar timeout
       setIsChangingPassword(false); // SIEMPRE desactivar
     }
-  }, [currentPassword, newPassword, confirmNewPassword])
+  }, [newPassword, confirmNewPassword])
 
 
   const [isChangingEmail, setIsChangingEmail] = useState(false);
@@ -530,7 +508,7 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
 
   const handleChangeEmail = useCallback(async () => {
     const trimmedEmail = newEmail.trim();
-    
+
     if (!trimmedEmail || !emailPassword) {
       toast.error('Completa todos los campos');
       return;
@@ -546,7 +524,7 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
     try {
       // 1. Verificar sesión actual (sin reautenticar para evitar doble llamada)
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      
+
       if (sessionError || !session) {
         toast.error('Sesión expirada. Inicia sesión de nuevo.');
         return;
@@ -559,7 +537,7 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
 
       if (authError) {
         console.error('Auth error:', authError);
-        
+
         // Manejo específico de rate limiting
         if (authError.status === 429 || authError.message?.includes('rate limit')) {
           toast.error(
@@ -568,12 +546,12 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
           );
           return;
         }
-        
+
         if (authError.message?.includes('already registered') || authError.code === 'email_exists') {
           toast.error('Este email ya está registrado por otro usuario');
           return;
         }
-        
+
         toast.error(authError.message || 'Error al cambiar email');
         return;
       }
@@ -581,7 +559,7 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
       // 3. Actualizar en tabla businesses solo si auth tuvo éxito
       const { error: dbError } = await supabase
         .from('businesses')
-        .update({ 
+        .update({
           email: trimmedEmail,
           updated_at: new Date().toISOString()
         })
@@ -598,7 +576,7 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
         'Solicitud enviada. Revisa tu correo nuevo (y también la carpeta de spam) para confirmar.',
         { duration: 6000 }
       );
-      
+
       setShowEmailForm(false);
       setNewEmail('');
       setEmailPassword('');
@@ -618,20 +596,18 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
       return
     }
 
-    const { error: businessError } = await supabase
-      .from('businesses')
-      .delete()
-      .eq('id', user.businessId)
+    const { error: rpcError } = await supabase.rpc('delete_user');
 
-    if (businessError) {
-      toast.error('Error al eliminar negocio')
+    if (rpcError) {
+      console.error('Error deleting user:', rpcError);
+      toast.error('Error al eliminar la cuenta')
       return
     }
 
     await supabase.auth.signOut()
     toast.success('Cuenta eliminada')
     onLogout()
-  }, [deleteConfirmText, user.businessName, user.businessId])
+  }, [deleteConfirmText, user.businessName, onLogout])
 
 
   const handleDeleteCommentClick = useCallback((commentId: string) => {
@@ -668,7 +644,7 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     const img = new Image();
-    
+
     img.onload = () => {
       canvas.width = img.width * 2;
       canvas.height = img.height * 2;
@@ -692,19 +668,19 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
       });
       return;
     }
-    
+
     setIsExporting(true);
-    
+
     setTimeout(() => {
       const headers = ['Fecha', 'Tipo', 'Comentario', 'Satisfacción'];
       const rows = filteredComments.map(c => [
         new Date(c.createdAt).toLocaleDateString('es-ES'),
         c.satisfaction,
         `"${c.text.replace(/"/g, '""')}"`,
-        c.satisfaction === 'happy' ? 'Satisfecho' : 
-        c.satisfaction === 'neutral' ? 'Neutral' : 'Insatisfecho'
+        c.satisfaction === 'happy' ? 'Satisfecho' :
+          c.satisfaction === 'neutral' ? 'Neutral' : 'Insatisfecho'
       ]);
-      
+
       const csvContent = [
         '\ufeff',
         headers.join(';'),
@@ -714,20 +690,20 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement('a');
       const url = URL.createObjectURL(blob);
-      
+
       let dateSuffix = '';
       if (dateRange.from && dateRange.to) {
         dateSuffix = `-${format(dateRange.from, 'dd-MM')}-a-${format(dateRange.to, 'dd-MM')}`;
       } else if (dateRange.from) {
         dateSuffix = `-desde-${format(dateRange.from, 'dd-MM')}`;
       }
-      
+
       link.setAttribute('href', url);
       link.setAttribute('download', `feedback-${business?.name || 'datos'}${dateSuffix}-${new Date().toISOString().split('T')[0]}.csv`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      
+
       setIsExporting(false);
       setShowExportDialog(false);
       toast.success('Excel descargado', {
@@ -743,9 +719,9 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
       });
       return;
     }
-    
+
     setIsExporting(true);
-    
+
     setTimeout(() => {
       const printWindow = window.open('', '_blank');
       if (!printWindow) {
@@ -754,11 +730,11 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
         return;
       }
 
-      const dateRangeText = dateRange.from && dateRange.to 
+      const dateRangeText = dateRange.from && dateRange.to
         ? `${format(dateRange.from, 'dd/MM/yyyy')} - ${format(dateRange.to, 'dd/MM/yyyy')}`
-        : dateRange.from 
-        ? `Desde ${format(dateRange.from, 'dd/MM/yyyy')}`
-        : 'Todo el período';
+        : dateRange.from
+          ? `Desde ${format(dateRange.from, 'dd/MM/yyyy')}`
+          : 'Todo el período';
 
       const htmlContent = `
         <html>
@@ -816,8 +792,8 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                   <tr>
                     <td>${new Date(c.createdAt).toLocaleDateString('es-ES')}</td>
                     <td class="${c.satisfaction}">
-                      ${c.satisfaction === 'happy' ? 'Satisfecho' : 
-                        c.satisfaction === 'neutral' ? 'Neutral' : 'Insatisfecho'}
+                      ${c.satisfaction === 'happy' ? 'Satisfecho' :
+          c.satisfaction === 'neutral' ? 'Neutral' : 'Insatisfecho'}
                     </td>
                     <td>${c.text}</td>
                   </tr>
@@ -836,7 +812,7 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
       printWindow.document.close();
       printWindow.focus();
       printWindow.print();
-      
+
       setIsExporting(false);
       setShowExportDialog(false);
       toast.success('PDF generado', {
@@ -879,7 +855,6 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
     setShowPasswordForm(!showPasswordForm);
     if (showPasswordForm) {
       setPasswordErrors({});
-      setCurrentPassword('');
       setNewPassword('');
       setConfirmNewPassword('');
     }
@@ -947,38 +922,38 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
     if (!canAccessAdvancedStats || !filteredComments || filteredComments.length === 0) return null;
 
     try {
-      const sortedComments = [...filteredComments].sort((a, b) => 
+      const sortedComments = [...filteredComments].sort((a, b) =>
         new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
       );
 
       const satisfactionValues = { happy: 2, neutral: 1, sad: 0 };
-      
+
       const dates = sortedComments.map(c => new Date(c.createdAt)).filter(d => !isNaN(d.getTime()));
       if (dates.length === 0) return null;
-      
+
       const minDate = new Date(Math.min(...dates.map(d => d.getTime())));
       const maxDate = new Date(Math.max(...dates.map(d => d.getTime())));
-      
+
       const allDays = eachDayOfInterval({
         start: dateRange.from || minDate,
         end: dateRange.to || maxDate
       });
 
       const byDay = new Map();
-      
+
       allDays.forEach(day => {
         const dateKey = format(day, 'yyyy-MM-dd');
-        byDay.set(dateKey, { 
-          date: dateKey, 
-          count: 0, 
-          totalScore: 0, 
-          happy: 0, 
-          neutral: 0, 
+        byDay.set(dateKey, {
+          date: dateKey,
+          count: 0,
+          totalScore: 0,
+          happy: 0,
+          neutral: 0,
           sad: 0,
           dateFormatted: format(day, 'dd MMM', { locale: es })
         });
       });
-      
+
       sortedComments.forEach(comment => {
         const date = format(parseISO(comment.createdAt), 'yyyy-MM-dd');
         if (byDay.has(date)) {
@@ -999,18 +974,18 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
       const firstHalf = dailyData.slice(0, midpoint);
       const secondHalf = dailyData.slice(midpoint);
 
-      const firstAvg = firstHalf.length > 0 
-        ? firstHalf.reduce((acc, d) => acc + d.avgSatisfaction, 0) / firstHalf.length 
+      const firstAvg = firstHalf.length > 0
+        ? firstHalf.reduce((acc, d) => acc + d.avgSatisfaction, 0) / firstHalf.length
         : 0;
-      const secondAvg = secondHalf.length > 0 
-        ? secondHalf.reduce((acc, d) => acc + d.avgSatisfaction, 0) / secondHalf.length 
+      const secondAvg = secondHalf.length > 0
+        ? secondHalf.reduce((acc, d) => acc + d.avgSatisfaction, 0) / secondHalf.length
         : 0;
 
       const trend = firstAvg > 0 ? ((secondAvg - firstAvg) / firstAvg) * 100 : 0;
 
       const weekdayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
       const byWeekday = Array(7).fill(0).map(() => ({ count: 0, totalScore: 0 }));
-      
+
       sortedComments.forEach(comment => {
         const day = new Date(comment.createdAt).getDay();
         byWeekday[day].count++;
@@ -1020,13 +995,13 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
       const weekdayData = byWeekday.map((data, i) => {
         const avgSatisfaction = data.count > 0 ? data.totalScore / data.count : 0;
         const satisfactionPercentage = (avgSatisfaction / 2) * 100;
-        
+
         let colorClass;
         if (satisfactionPercentage < 40) colorClass = 'bg-red-500';
         else if (satisfactionPercentage < 60) colorClass = 'bg-orange-500';
         else if (satisfactionPercentage < 80) colorClass = 'bg-yellow-500';
         else colorClass = 'bg-green-500';
-        
+
         return {
           day: weekdayNames[i],
           count: data.count,
@@ -1053,7 +1028,7 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
   }, [filteredComments, canAccessAdvancedStats, dateRange.from?.getTime(), dateRange.to?.getTime()]);
 
   // Componente Calendario
-  const CalendarComponent = useCallback(({ onSelect, selectedRange, onClose, bounds }: { 
+  const CalendarComponent = useCallback(({ onSelect, selectedRange, onClose, bounds }: {
     onSelect: (range: { from: Date | undefined; to: Date | undefined }) => void;
     selectedRange: { from: Date | undefined; to: Date | undefined };
     onClose: () => void;
@@ -1061,20 +1036,20 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
   }) => {
     const [currentMonth, setCurrentMonth] = useState(selectedRange.from || bounds?.minDate || new Date());
     const [selecting, setSelecting] = useState(!selectedRange.to && !!selectedRange.from);
-    
+
     if (!bounds) return null;
-    
+
     const daysInMonth = getDaysInMonth(currentMonth);
     const firstDayOfMonth = startOfMonth(currentMonth);
     const startDay = getDay(firstDayOfMonth);
-    
+
     const handleDateClick = (day: number) => {
       const clickedDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
-      
+
       if (isBefore(clickedDate, startOfDay(bounds.minDate)) || isAfter(clickedDate, endOfDay(bounds.maxDate))) {
         return;
       }
-      
+
       if (!selecting || !selectedRange.from) {
         onSelect({ from: clickedDate, to: undefined });
         setSelecting(true);
@@ -1092,9 +1067,9 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
       const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
       if (selectedRange.from && isSameDay(date, selectedRange.from)) return 'start';
       if (selectedRange.to && isSameDay(date, selectedRange.to)) return 'end';
-      if (selectedRange.from && selectedRange.to && isWithinInterval(date, { 
-        start: startOfDay(selectedRange.from), 
-        end: endOfDay(selectedRange.to) 
+      if (selectedRange.from && selectedRange.to && isWithinInterval(date, {
+        start: startOfDay(selectedRange.from),
+        end: endOfDay(selectedRange.to)
       })) return 'between';
       return false;
     };
@@ -1104,18 +1079,18 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
       return isBefore(date, startOfDay(bounds.minDate)) || isAfter(date, endOfDay(bounds.maxDate));
     };
 
-    const canGoPrevious = !isSameDay(startOfMonth(currentMonth), startOfMonth(bounds.minDate)) && 
-                          isAfter(startOfMonth(currentMonth), startOfMonth(bounds.minDate));
-    
-    const canGoNext = !isSameDay(startOfMonth(currentMonth), startOfMonth(bounds.maxDate)) && 
-                      isBefore(startOfMonth(currentMonth), startOfMonth(bounds.maxDate));
+    const canGoPrevious = !isSameDay(startOfMonth(currentMonth), startOfMonth(bounds.minDate)) &&
+      isAfter(startOfMonth(currentMonth), startOfMonth(bounds.minDate));
+
+    const canGoNext = !isSameDay(startOfMonth(currentMonth), startOfMonth(bounds.maxDate)) &&
+      isBefore(startOfMonth(currentMonth), startOfMonth(bounds.maxDate));
 
     const weekDays = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
 
     return (
       <div className="p-3 w-[280px]">
         <div className="flex items-center justify-between mb-4">
-          <button 
+          <button
             onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
             disabled={!canGoPrevious}
             className={`p-1 rounded transition-colors ${canGoPrevious ? 'hover:bg-gray-100 dark:hover:bg-gray-800' : 'opacity-30 cursor-not-allowed'}`}
@@ -1125,7 +1100,7 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
           <span className="font-semibold text-sm capitalize">
             {format(currentMonth, 'MMMM yyyy', { locale: es })}
           </span>
-          <button 
+          <button
             onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
             disabled={!canGoNext}
             className={`p-1 rounded transition-colors ${canGoNext ? 'hover:bg-gray-100 dark:hover:bg-gray-800' : 'opacity-30 cursor-not-allowed'}`}
@@ -1151,7 +1126,7 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
             const selectionType = isSelected(day);
             const disabled = isDisabled(day);
             const isTodayDate = isToday(new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day));
-            
+
             return (
               <button
                 key={day}
@@ -1159,13 +1134,13 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                 disabled={disabled}
                 className={`
                   h-8 w-8 rounded-full text-xs font-medium transition-all relative
-                  ${selectionType === 'start' || selectionType === 'end' 
-                    ? 'bg-indigo-600 text-white' 
+                  ${selectionType === 'start' || selectionType === 'end'
+                    ? 'bg-indigo-600 text-white'
                     : selectionType === 'between'
-                    ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300'
-                    : disabled
-                    ? 'text-gray-300 dark:text-gray-600 cursor-not-allowed'
-                    : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300'
+                      ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300'
+                      : disabled
+                        ? 'text-gray-300 dark:text-gray-600 cursor-not-allowed'
+                        : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300'
                   }
                   ${isTodayDate && !selectionType ? 'ring-1 ring-indigo-500' : ''}
                 `}
@@ -1191,16 +1166,16 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
               )}
             </div>
             <div className="flex gap-2">
-              <Button 
-                variant="ghost" 
-                size="sm" 
+              <Button
+                variant="ghost"
+                size="sm"
                 className="h-8 text-xs"
                 onClick={() => onSelect({ from: bounds.minDate, to: bounds.maxDate })}
               >
                 Todo
               </Button>
-              <Button 
-                size="sm" 
+              <Button
+                size="sm"
                 className="h-8 text-xs bg-indigo-600 hover:bg-indigo-700"
                 onClick={onClose}
                 disabled={!selectedRange.from || !selectedRange.to}
@@ -1214,7 +1189,6 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
     );
   }, []);
 
-  // NUEVO: Función para cambiar de plan - AHORA PERMITE CUALQUIER CAMBIO
   const handleChangePlan = async (newPlan: PlanType) => {
     if (newPlan === user.plan) {
       toast.info('Ya tienes este plan activo');
@@ -1222,39 +1196,63 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
     }
 
     setIsChangingPlan(true);
-    
-    try {
-      // Actualizar directamente en Supabase - sin restricciones de Stripe
-      const { error } = await supabase
-        .from('businesses')
-        .update({ 
-          plan: newPlan, 
-          updated_at: new Date().toISOString() 
-        })
-        .eq('id', user.businessId);
 
-      if (error) throw error;
-      
-      const planNames = {
-        free: 'Gratis',
-        basic: 'Básico',
-        pro: 'Pro'
-      };
-      
-      toast.success(`Plan cambiado a ${planNames[newPlan]}`, {
-        description: 'Recargando para aplicar cambios...'
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+
+      // Si el plan actual es gratis, enviarlo a checkout para crear su primera suscripción
+      if (user.plan === 'free') {
+        const priceId = newPlan === 'basic'
+          ? import.meta.env.VITE_STRIPE_BASIC_MONTHLY_PRICE_ID
+          : import.meta.env.VITE_STRIPE_PRO_MONTHLY_PRICE_ID;
+
+        const { data, error } = await supabase.functions.invoke('create-checkout', {
+          body: {
+            priceId,
+            successUrl: `${window.location.origin}/dashboard?session_id={CHECKOUT_SESSION_ID}`,
+            cancelUrl: `${window.location.origin}/dashboard`
+          },
+          headers: session ? { Authorization: `Bearer ${session.access_token}` } : undefined
+        });
+
+        if (error || !data?.url) throw error || new Error('No URL returned');
+        window.location.href = data.url;
+        return;
+      }
+
+      // Si ya tiene plan de pago, enviarlo al portal de Stripe para cambiar su suscripción
+      const { data, error } = await supabase.functions.invoke('create-portal', {
+        body: { returnUrl: window.location.origin + '/dashboard' },
+        headers: session ? { Authorization: `Bearer ${session.access_token}` } : undefined
       });
-      
-      // Recargar después de 1 segundo para aplicar cambios
-      setTimeout(() => {
-        window.location.reload();
-      }, 1000);
-      
+
+      if (error || !data?.url) throw error || new Error('No URL returned');
+      window.location.href = data.url;
+
     } catch (err) {
-      console.error('Error cambiando plan:', err);
-      toast.error('Error al cambiar el plan. Intenta de nuevo.');
-    } finally {
+      console.error('Error gestionando plan:', err);
+      toast.error('Error al contactar con la pasarela de pagos.');
       setIsChangingPlan(false);
+    }
+  };
+
+  const [isManagingBilling, setIsManagingBilling] = useState(false);
+
+  const handleManageBilling = async () => {
+    setIsManagingBilling(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const { data, error } = await supabase.functions.invoke('create-portal', {
+        body: { returnUrl: window.location.origin + '/dashboard' },
+        headers: session ? { Authorization: `Bearer ${session.access_token}` } : undefined
+      });
+
+      if (error || !data?.url) throw error || new Error('No URL returned');
+      window.location.href = data.url;
+    } catch (err) {
+      console.error('Error abriendo portal:', err);
+      toast.error('Error al contactar con el portal de pagos.');
+      setIsManagingBilling(false);
     }
   };
 
@@ -1262,7 +1260,7 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
       {/* Banner de límite alcanzado o cercano */}
       {(isLimitReached || isNearLimit) && (
-        <motion.div 
+        <motion.div
           initial={{ y: -100 }}
           animate={{ y: 0 }}
           className={`sticky top-0 z-50 ${isLimitReached ? 'bg-red-600' : 'bg-amber-500'} text-white px-4 py-3 shadow-lg`}
@@ -1272,20 +1270,20 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
               <AlertTriangle className="w-5 h-5" />
               <div>
                 <p className="font-semibold text-sm">
-                  {isLimitReached 
-                    ? `Has alcanzado el límite de ${limits.maxCommentsPerMonth} comentarios mensuales` 
+                  {isLimitReached
+                    ? `Has alcanzado el límite de ${limits.maxCommentsPerMonth} comentarios mensuales`
                     : `Estás cerca del límite: ${remaining} comentarios restantes este mes`}
                 </p>
                 <p className="text-xs text-white/90">
-                  {isLimitReached 
-                    ? `Los comentarios eliminados siguen contando para el límite mensual` 
+                  {isLimitReached
+                    ? `Los comentarios eliminados siguen contando para el límite mensual`
                     : `Dejarás de recibir comentarios de usuarios pronto`}
                 </p>
               </div>
             </div>
             {user.plan !== 'pro' && (
-              <Button 
-                size="sm" 
+              <Button
+                size="sm"
                 className="bg-white text-gray-900 hover:bg-gray-100 font-semibold"
                 onClick={() => {
                   setShowSettings(true);
@@ -1298,10 +1296,11 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
             )}
           </div>
         </motion.div>
-      )}
+      )
+      }
 
       {/* Header */}
-      <motion.header 
+      <motion.header
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 sticky top-0 z-40"
@@ -1331,20 +1330,19 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
             <div className="flex items-center gap-1 sm:gap-3 flex-shrink-0">
               {/* Badge en móvil (solo el plan sin texto "Plan") */}
               <div className="sm:hidden">
-                <Badge className={`text-[10px] px-1.5 py-0.5 ${
-                  user.plan === 'free' ? 'bg-gray-100 text-gray-700' :
+                <Badge className={`text-[10px] px-1.5 py-0.5 ${user.plan === 'free' ? 'bg-gray-100 text-gray-700' :
                   user.plan === 'basic' ? 'bg-blue-100 text-blue-700' :
-                  'bg-amber-100 text-amber-700'
-                }`}>
+                    'bg-amber-100 text-amber-700'
+                  }`}>
                   {user.plan === 'free' ? 'Gratis' : user.plan === 'basic' ? 'Básico' : 'Pro'}
                 </Badge>
               </div>
-              
+
               {/* Indicador de uso - solo en desktop */}
               {!isPro && (
                 <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-gray-800 rounded-lg">
                   <div className="w-16 xl:w-24 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                    <div 
+                    <div
                       className={`h-full transition-all ${percentage >= 90 ? 'bg-red-500' : percentage >= 70 ? 'bg-amber-500' : 'bg-green-500'}`}
                       style={{ width: `${percentage}%` }}
                     />
@@ -1354,12 +1352,12 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                   </span>
                 </div>
               )}
-              
+
               {/* Email - solo en desktop grande */}
               <span className="text-sm text-gray-600 dark:text-gray-300 hidden xl:inline truncate max-w-[150px]">
                 {user.email}
               </span>
-              
+
               <ThemeToggle theme={themeProps.theme} setTheme={themeProps.setTheme} />
 
               <Button
@@ -1371,7 +1369,7 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
               >
                 <Settings className="w-4 h-4" />
               </Button>
-              
+
               <Button
                 variant="outline"
                 onClick={onLogout}
@@ -1388,7 +1386,7 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Stats Cards */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
@@ -1463,7 +1461,7 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
             className="mb-8"
           >
             <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-0 shadow-xl dark:shadow-gray-900/50 overflow-hidden">
-              <CardHeader 
+              <CardHeader
                 className="cursor-pointer pb-4"
                 onClick={() => setShowAdvancedStats(!showAdvancedStats)}
               >
@@ -1509,26 +1507,23 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                               Selecciona el rango de fechas para analizar tus estadísticas
                             </p>
                           </div>
-                          
-                          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border ${
-                            dateRange.from || dateRange.to
-                              ? 'bg-purple-50 dark:bg-purple-900/20 border-purple-100 dark:border-purple-800'
-                              : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
-                          }`}>
-                            <Clock className={`w-4 h-4 ${
-                              dateRange.from || dateRange.to
-                                ? 'text-purple-600 dark:text-purple-400'
-                                : 'text-gray-600 dark:text-gray-400'
-                            }`} />
-                            <span className={`text-sm font-medium ${
-                              dateRange.from || dateRange.to
-                                ? 'text-purple-700 dark:text-purple-300'
-                                : 'text-gray-700 dark:text-gray-300'
+
+                          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border ${dateRange.from || dateRange.to
+                            ? 'bg-purple-50 dark:bg-purple-900/20 border-purple-100 dark:border-purple-800'
+                            : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
                             }`}>
+                            <Clock className={`w-4 h-4 ${dateRange.from || dateRange.to
+                              ? 'text-purple-600 dark:text-purple-400'
+                              : 'text-gray-600 dark:text-gray-400'
+                              }`} />
+                            <span className={`text-sm font-medium ${dateRange.from || dateRange.to
+                              ? 'text-purple-700 dark:text-purple-300'
+                              : 'text-gray-700 dark:text-gray-300'
+                              }`}>
                               {dateRangeText}
                             </span>
                             {(dateRange.from || dateRange.to) && (
-                              <button 
+                              <button
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   clearDateFilter();
@@ -1540,12 +1535,12 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                             )}
                           </div>
                         </div>
-                        
+
                         <div className="flex flex-wrap gap-2 mb-4">
                           {statsDatePresets.map((preset) => {
                             const Icon = preset.icon;
                             const isActive = activePreset === preset.days;
-                            
+
                             return (
                               <Button
                                 key={preset.label}
@@ -1559,7 +1554,7 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                               </Button>
                             );
                           })}
-                          
+
                           <Popover open={showCustomDatePicker} onOpenChange={setShowCustomDatePicker}>
                             <PopoverTrigger asChild>
                               <Button
@@ -1572,7 +1567,7 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                               </Button>
                             </PopoverTrigger>
                             <PopoverContent className="w-auto p-0" align="start">
-                              <CalendarComponent 
+                              <CalendarComponent
                                 onSelect={(range) => {
                                   setDateRange(range);
                                   setActivePreset('custom');
@@ -1594,9 +1589,8 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                           {/* KPIs adicionales */}
                           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 py-6 border-b border-gray-100 dark:border-gray-700">
                             <div className="flex items-center gap-3">
-                              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                                advancedChartData.trend >= 0 ? 'bg-green-100 dark:bg-green-900/30' : 'bg-red-100 dark:bg-red-900/30'
-                              }`}>
+                              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${advancedChartData.trend >= 0 ? 'bg-green-100 dark:bg-green-900/30' : 'bg-red-100 dark:bg-red-900/30'
+                                }`}>
                                 {advancedChartData.trend >= 0 ? (
                                   <TrendingUp className="w-5 h-5 text-green-600 dark:text-green-400" />
                                 ) : (
@@ -1605,9 +1599,8 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                               </div>
                               <div>
                                 <p className="text-sm text-gray-500 dark:text-gray-400">Tendencia</p>
-                                <p className={`text-lg font-bold ${
-                                  advancedChartData.trend >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
-                                }`}>
+                                <p className={`text-lg font-bold ${advancedChartData.trend >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                                  }`}>
                                   {advancedChartData.trend >= 0 ? '+' : ''}{advancedChartData.trend.toFixed(1)}%
                                 </p>
                               </div>
@@ -1650,28 +1643,28 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                                 {advancedChartData.dailyData.slice(-14).map((day, i) => (
                                   <div key={i} className="flex-1 flex flex-col items-center gap-1 group relative">
                                     <div className="relative w-full">
-                                      <div 
+                                      <div
                                         className="w-full bg-green-500/20 dark:bg-green-400/20 rounded-t transition-all duration-300 group-hover:bg-green-500/40"
                                         style={{ height: `${(day.count / (advancedChartData.maxDailyCount || 1)) * 120}px` }}
                                       >
-                                        <div 
+                                        <div
                                           className="absolute bottom-0 w-full bg-green-500 dark:bg-green-400 rounded-t transition-all duration-300"
                                           style={{ height: `${day.count > 0 ? (day.happy / day.count) * 100 : 0}%`, opacity: 0.9 }}
                                         />
-                                        <div 
+                                        <div
                                           className="absolute bottom-0 w-full bg-yellow-500 dark:bg-yellow-400 rounded-t transition-all duration-300"
-                                          style={{ 
-                                            height: `${day.count > 0 ? (day.neutral / day.count) * 100 : 0}%`, 
+                                          style={{
+                                            height: `${day.count > 0 ? (day.neutral / day.count) * 100 : 0}%`,
                                             bottom: `${day.count > 0 ? (day.happy / day.count) * 100 : 0}%`,
-                                            opacity: 0.9 
+                                            opacity: 0.9
                                           }}
                                         />
-                                        <div 
+                                        <div
                                           className="absolute bottom-0 w-full bg-red-500 dark:bg-red-400 rounded-t transition-all duration-300"
-                                          style={{ 
-                                            height: `${day.count > 0 ? (day.sad / day.count) * 100 : 0}%`, 
+                                          style={{
+                                            height: `${day.count > 0 ? (day.sad / day.count) * 100 : 0}%`,
                                             bottom: `${day.count > 0 ? ((day.happy + day.neutral) / day.count) * 100 : 0}%`,
-                                            opacity: 0.9 
+                                            opacity: 0.9
                                           }}
                                         />
                                       </div>
@@ -1716,42 +1709,42 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                               <div className="h-48 relative">
                                 <svg className="w-full h-full" viewBox="0 0 300 120" preserveAspectRatio="none">
                                   {[0, 25, 50, 75, 100].map((y, i) => (
-                                    <line 
+                                    <line
                                       key={i}
-                                      x1="0" 
-                                      y1={120 - (y / 100) * 120} 
-                                      x2="300" 
-                                      y2={120 - (y / 100) * 120} 
-                                      stroke="currentColor" 
-                                      strokeDasharray="4,4" 
+                                      x1="0"
+                                      y1={120 - (y / 100) * 120}
+                                      x2="300"
+                                      y2={120 - (y / 100) * 120}
+                                      stroke="currentColor"
+                                      strokeDasharray="4,4"
                                       className="text-gray-200 dark:text-gray-700"
                                     />
                                   ))}
-                                  
+
                                   {advancedChartData.dailyData.length > 0 && (
                                     <path
                                       d={`
                                         M 0 ${120 - (advancedChartData.dailyData[0]?.satisfactionPercentage || 0) * 1.2}
                                         ${advancedChartData.dailyData.map((day, i) => {
-                                          const x = (i / (advancedChartData.dailyData.length - 1 || 1)) * 300;
-                                          const y = 120 - (day.satisfactionPercentage * 1.2);
-                                          return `L ${x} ${y}`;
-                                        }).join(' ')}
+                                        const x = (i / (advancedChartData.dailyData.length - 1 || 1)) * 300;
+                                        const y = 120 - (day.satisfactionPercentage * 1.2);
+                                        return `L ${x} ${y}`;
+                                      }).join(' ')}
                                         L 300 120 L 0 120 Z
                                       `}
                                       className="fill-green-500/10 dark:fill-green-400/10"
                                     />
                                   )}
-                                  
+
                                   {advancedChartData.dailyData.length > 0 && (
                                     <path
                                       d={`
                                         M 0 ${120 - (advancedChartData.dailyData[0]?.satisfactionPercentage || 0) * 1.2}
                                         ${advancedChartData.dailyData.map((day, i) => {
-                                          const x = (i / (advancedChartData.dailyData.length - 1 || 1)) * 300;
-                                          const y = 120 - (day.satisfactionPercentage * 1.2);
-                                          return `L ${x} ${y}`;
-                                        }).join(' ')}
+                                        const x = (i / (advancedChartData.dailyData.length - 1 || 1)) * 300;
+                                        const y = 120 - (day.satisfactionPercentage * 1.2);
+                                        return `L ${x} ${y}`;
+                                      }).join(' ')}
                                       `}
                                       fill="none"
                                       stroke="currentColor"
@@ -1759,23 +1752,23 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                                       className="text-green-500 dark:text-green-400"
                                     />
                                   )}
-                                  
+
                                   {advancedChartData.dailyData.map((day, i) => {
                                     const x = (i / (advancedChartData.dailyData.length - 1 || 1)) * 300;
                                     const y = 120 - (day.satisfactionPercentage * 1.2);
-                                    
+
                                     let pointColor;
                                     if (day.satisfactionPercentage < 40) pointColor = '#ef4444';
                                     else if (day.satisfactionPercentage < 60) pointColor = '#f97316';
                                     else if (day.satisfactionPercentage < 80) pointColor = '#eab308';
                                     else pointColor = '#22c55e';
-                                    
+
                                     return (
-                                      <circle 
+                                      <circle
                                         key={i}
-                                        cx={x} 
-                                        cy={y} 
-                                        r="3" 
+                                        cx={x}
+                                        cy={y}
+                                        r="3"
                                         fill={pointColor}
                                         className="hover:r-5 transition-all cursor-pointer"
                                       >
@@ -1784,7 +1777,7 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                                     );
                                   })}
                                 </svg>
-                                
+
                                 <div className="absolute left-0 top-0 bottom-0 flex flex-col justify-between text-[10px] text-gray-400 -translate-x-full pr-2">
                                   <span>100%</span>
                                   <span>75%</span>
@@ -1809,11 +1802,11 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                               {advancedChartData.weekdayData.map((day, i) => {
                                 const maxCount = Math.max(...advancedChartData.weekdayData.map(d => d.count));
                                 const percentage = maxCount > 0 ? (day.count / maxCount) * 100 : 0;
-                                
+
                                 return (
                                   <div key={i} className="flex flex-col items-center gap-2 group">
                                     <div className="relative w-full h-24 bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden">
-                                      <div 
+                                      <div
                                         className={`absolute bottom-0 w-full transition-all duration-500 ${day.colorClass} opacity-80 group-hover:opacity-100`}
                                         style={{ height: `${percentage}%` }}
                                       />
@@ -1822,7 +1815,7 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                                           {day.count}
                                         </span>
                                       </div>
-                                      
+
                                       <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
                                         {day.satisfactionPercentage.toFixed(0)}% satisfacción
                                       </div>
@@ -1833,7 +1826,7 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                                 );
                               })}
                             </div>
-                            
+
                             <div className="flex justify-center items-center gap-4 mt-4 text-xs">
                               <div className="flex items-center gap-1">
                                 <div className="w-3 h-3 bg-red-500 rounded-sm" />
@@ -1885,7 +1878,7 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                       </p>
                     </div>
                   </div>
-                  <Button 
+                  <Button
                     onClick={() => {
                       setShowSettings(true);
                       setSettingsTab('plan');
@@ -1917,22 +1910,22 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                   <p className="text-indigo-100 mb-4">
                     Tus clientes pueden dejar comentarios escaneando el código QR o visitando el enlace.
                   </p>
-                  
+
                   {/* Advertencia de límite para plan gratuito */}
                   {!isPro && (
                     <div className="mb-4 p-3 bg-white/10 rounded-lg border border-white/20">
                       <div className="flex items-center gap-2 text-white/90 text-sm">
                         <Zap className="w-4 h-4" />
                         <span>
-                          {remaining !== Infinity && remaining > 0 
-                            ? `${remaining} comentarios disponibles este mes` 
-                            : remaining === 0 
-                            ? 'Límite mensual alcanzado' 
-                            : 'Comentarios ilimitados'}
+                          {remaining !== Infinity && remaining > 0
+                            ? `${remaining} comentarios disponibles este mes`
+                            : remaining === 0
+                              ? 'Límite mensual alcanzado'
+                              : 'Comentarios ilimitados'}
                         </span>
                       </div>
                       <div className="w-full h-1.5 bg-white/20 rounded-full mt-2">
-                        <div 
+                        <div
                           className={`h-full rounded-full transition-all ${isNearLimit ? 'bg-amber-400' : 'bg-white'}`}
                           style={{ width: `${Math.min(100, percentage)}%` }}
                         />
@@ -1986,17 +1979,16 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                     <PopoverTrigger asChild>
                       <Button
                         variant="outline"
-                        className={`gap-2 dark:border-gray-600 dark:text-gray-300 h-10 justify-between min-w-[200px] ${
-                          dateRange.from || dateRange.to 
-                            ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 dark:border-indigo-500' 
-                            : ''
-                        }`}
+                        className={`gap-2 dark:border-gray-600 dark:text-gray-300 h-10 justify-between min-w-[200px] ${dateRange.from || dateRange.to
+                          ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 dark:border-indigo-500'
+                          : ''
+                          }`}
                       >
                         <Calendar className="w-4 h-4" />
                         <span className="truncate">{dateRangeText}</span>
                         {dateRange.from || dateRange.to ? (
-                          <X 
-                            className="w-4 h-4 hover:text-red-600" 
+                          <X
+                            className="w-4 h-4 hover:text-red-600"
                             onClick={(e) => {
                               e.stopPropagation();
                               clearDateFilter();
@@ -2024,7 +2016,7 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                           ))}
                         </div>
                       </div>
-                      <CalendarComponent 
+                      <CalendarComponent
                         onSelect={(range) => {
                           setDateRange(range);
                           setActivePreset('custom');
@@ -2038,7 +2030,7 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                       />
                     </PopoverContent>
                   </Popover>
-                  
+
                   {(dateRange.from || dateRange.to) && (
                     <Button
                       variant="ghost"
@@ -2101,8 +2093,8 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
             </div>
 
             <TabsContent value="all" className="mt-0">
-              <CommentsList 
-                comments={filteredComments} 
+              <CommentsList
+                comments={filteredComments}
                 isLoading={isLoading || isFiltering}
                 onDeleteClick={handleDeleteCommentClick}
                 getSatisfactionIcon={getSatisfactionIcon}
@@ -2111,8 +2103,8 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
             </TabsContent>
 
             <TabsContent value="happy" className="mt-0">
-              <CommentsList 
-                comments={filteredComments.filter(c => c.satisfaction === 'happy')} 
+              <CommentsList
+                comments={filteredComments.filter(c => c.satisfaction === 'happy')}
                 isLoading={isLoading || isFiltering}
                 onDeleteClick={handleDeleteCommentClick}
                 getSatisfactionIcon={getSatisfactionIcon}
@@ -2121,8 +2113,8 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
             </TabsContent>
 
             <TabsContent value="neutral" className="mt-0">
-              <CommentsList 
-                comments={filteredComments.filter(c => c.satisfaction === 'neutral')} 
+              <CommentsList
+                comments={filteredComments.filter(c => c.satisfaction === 'neutral')}
                 isLoading={isLoading || isFiltering}
                 onDeleteClick={handleDeleteCommentClick}
                 getSatisfactionIcon={getSatisfactionIcon}
@@ -2131,8 +2123,8 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
             </TabsContent>
 
             <TabsContent value="sad" className="mt-0">
-              <CommentsList 
-                comments={filteredComments.filter(c => c.satisfaction === 'sad')} 
+              <CommentsList
+                comments={filteredComments.filter(c => c.satisfaction === 'sad')}
                 isLoading={isLoading}
                 onDeleteClick={handleDeleteCommentClick}
                 getSatisfactionIcon={getSatisfactionIcon}
@@ -2151,7 +2143,7 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
               Código QR
             </DialogTitle>
             <DialogDescription>
-              {canCustomizeQR 
+              {canCustomizeQR
                 ? "Personaliza colores, texto y contenido de tu QR."
                 : "Algunos diseños están disponibles exclusivamente para usuarios Pro"
               }
@@ -2160,7 +2152,7 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
 
           <div className="space-y-6 py-4">
             <div className="flex justify-center">
-              <div 
+              <div
                 ref={qrRef}
                 className="relative p-8 rounded-2xl shadow-2xl"
                 style={{ backgroundColor: selectedStyle.bgColor }}
@@ -2169,7 +2161,7 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                 <div className="absolute top-4 right-4 w-8 h-8 border-r-4 border-t-4 rounded-tr-lg" style={{ borderColor: selectedStyle.accentColor }} />
                 <div className="absolute bottom-4 left-4 w-8 h-8 border-l-4 border-b-4 rounded-bl-lg" style={{ borderColor: selectedStyle.accentColor }} />
                 <div className="absolute bottom-4 right-4 w-8 h-8 border-r-4 border-b-4 rounded-br-lg" style={{ borderColor: selectedStyle.accentColor }} />
-                
+
                 <div className="relative inline-block">
                   <QRCodeSVG
                     value={getBusinessUrl()}
@@ -2180,11 +2172,11 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                     fgColor={selectedStyle.fgColor}
                   />
                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <div 
+                    <div
                       className="w-12 h-12 rounded-xl flex items-center justify-center z-10 pointer-events-auto"
                       style={{ backgroundColor: selectedStyle.bgColor }}
                     >
-                      <div 
+                      <div
                         className="w-10 h-10 rounded-lg flex items-center justify-center"
                         style={{ backgroundColor: selectedStyle.accentColor }}
                       >
@@ -2218,14 +2210,12 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                 </div>
                 <button
                   onClick={() => setShowBusinessName(!showBusinessName)}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                    showBusinessName ? 'bg-indigo-600' : 'bg-gray-300 dark:bg-gray-600'
-                  }`}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${showBusinessName ? 'bg-indigo-600' : 'bg-gray-300 dark:bg-gray-600'
+                    }`}
                 >
                   <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      showBusinessName ? 'translate-x-6' : 'translate-x-1'
-                    }`}
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${showBusinessName ? 'translate-x-6' : 'translate-x-1'
+                      }`}
                   />
                 </button>
               </div>
@@ -2247,7 +2237,7 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                   {qrStyles.map((style, index) => {
                     const isAvailable = canCustomizeQR || index === 0;
                     const isSelected = selectedStyle.id === style.id;
-                    
+
                     return (
                       <button
                         key={style.id}
@@ -2256,7 +2246,7 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                         className={`
                           px-3 py-2 rounded-lg text-sm font-medium transition-all relative
                           ${isSelected && isAvailable
-                            ? 'ring-2 ring-indigo-500 bg-indigo-50 dark:bg-indigo-900/30' 
+                            ? 'ring-2 ring-indigo-500 bg-indigo-50 dark:bg-indigo-900/30'
                             : isAvailable
                               ? 'bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600'
                               : 'bg-gray-50 dark:bg-gray-800 opacity-60 cursor-not-allowed'
@@ -2264,10 +2254,10 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                         `}
                       >
                         <div className="flex items-center gap-2">
-                          <div 
+                          <div
                             className="w-4 h-4 rounded border-2"
-                            style={{ 
-                              backgroundColor: style.bgColor, 
+                            style={{
+                              backgroundColor: style.bgColor,
                               borderColor: style.fgColor,
                               opacity: isAvailable ? 1 : 0.4
                             }}
@@ -2285,9 +2275,9 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
               </div>
 
               {!canCustomizeQR && (
-                <Button 
-                  variant="outline" 
-                  size="sm" 
+                <Button
+                  variant="outline"
+                  size="sm"
                   className="w-full gap-2 border-amber-500 text-amber-700 hover:bg-amber-50 dark:border-amber-600 dark:text-amber-400 dark:hover:bg-amber-900/30"
                   onClick={() => {
                     setShowQRDialog(false);
@@ -2311,21 +2301,19 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                 <div className="flex gap-2 p-1 bg-gray-100 dark:bg-gray-800 rounded-lg">
                   <button
                     onClick={() => setIsCustomPhrase(false)}
-                    className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all ${
-                      !isCustomPhrase 
-                        ? 'bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-white' 
-                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'
-                    }`}
+                    className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all ${!isCustomPhrase
+                      ? 'bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-white'
+                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'
+                      }`}
                   >
                     Frases sugeridas
                   </button>
                   <button
                     onClick={() => setIsCustomPhrase(true)}
-                    className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all ${
-                      isCustomPhrase 
-                        ? 'bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-white' 
-                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'
-                    }`}
+                    className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all ${isCustomPhrase
+                      ? 'bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-white'
+                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'
+                      }`}
                   >
                     Personalizado
                   </button>
@@ -2345,8 +2333,8 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                           onClick={() => setSelectedPhrase(phrase)}
                           className={`
                             px-3 py-2 rounded-lg text-sm transition-all text-left
-                            ${selectedPhrase === phrase 
-                              ? 'bg-indigo-600 text-white' 
+                            ${selectedPhrase === phrase
+                              ? 'bg-indigo-600 text-white'
                               : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                             }
                           `}
@@ -2454,16 +2442,16 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                     <Label className="text-sm font-medium">Correo electrónico</Label>
                     <p className="text-xs text-gray-500 mt-1">Email actual: {user.email}</p>
                   </div>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={() => setShowEmailForm(!showEmailForm)}
                   >
                     <Mail className="w-4 h-4 mr-2" />
                     {showEmailForm ? 'Cancelar' : 'Cambiar email'}
                   </Button>
                 </div>
-                
+
                 {showEmailForm && (
                   <div className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-lg border border-gray-200 dark:border-gray-700 space-y-3">
                     <div className="space-y-2">
@@ -2490,7 +2478,7 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                       <AlertCircle className="w-4 h-4 inline mr-2" />
                       Solo puedes cambiar tu email 1 vez por hora. Asegúrate de que el nuevo email sea correcto.
                     </div>
-                    <Button 
+                    <Button
                       onClick={handleChangeEmail}
                       className="w-full"
                       disabled={!newEmail || !emailPassword || isChangingEmail}
@@ -2519,36 +2507,18 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                     <Label className="text-sm font-medium">Contraseña</Label>
                     <p className="text-xs text-gray-500 mt-1">••••••••</p>
                   </div>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={togglePasswordForm}
                   >
                     <Lock className="w-4 h-4 mr-2" />
                     {showPasswordForm ? 'Cancelar' : 'Cambiar contraseña'}
                   </Button>
                 </div>
-                
+
                 {showPasswordForm && (
                   <div className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-lg border border-gray-200 dark:border-gray-700 space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="currentPassword" className="text-sm">Contraseña actual</Label>
-                      <Input
-                        id="currentPassword"
-                        type="password"
-                        value={currentPassword}
-                        onChange={(e) => setCurrentPassword(e.target.value)}
-                        placeholder="Contraseña actual"
-                        className={passwordErrors.currentPassword ? 'border-red-500 focus:border-red-500 focus:ring-red-500 bg-red-50 dark:bg-red-900/20' : ''}
-                      />
-                      {passwordErrors.currentPassword && (
-                        <div className="flex items-center gap-1.5 text-red-600 dark:text-red-400 text-xs animate-in fade-in slide-in-from-top-1">
-                          <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
-                          <span>{passwordErrors.currentPassword}</span>
-                        </div>
-                      )}
-                    </div>
-
                     <div className="space-y-2">
                       <Label htmlFor="newPassword" className="text-sm">Nueva contraseña</Label>
                       <Input
@@ -2565,7 +2535,7 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                           <span>{passwordErrors.newPassword}</span>
                         </div>
                       ) : (
-                        <p className="text-xs text-gray-500">Mínimo 6 caracteres y debe ser diferente a la actual</p>
+                        <p className="text-xs text-gray-500">Mínimo 6 caracteres</p>
                       )}
                     </div>
 
@@ -2587,7 +2557,7 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                       )}
                     </div>
 
-                    <Button 
+                    <Button
                       onClick={handlePasswordChange}
                       className="w-full"
                       disabled={isChangingPassword}
@@ -2614,9 +2584,9 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                 <Label>ID del negocio</Label>
                 <div className="flex gap-2">
                   <Input value={user.businessId} disabled className="bg-gray-100 dark:bg-gray-800 font-mono text-xs" />
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={() => {
                       navigator.clipboard.writeText(user.businessId);
                       toast.success('ID copiado');
@@ -2634,14 +2604,14 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
             <TabsContent value="plan" className="space-y-4 mt-4">
               <div className="grid gap-4">
                 {(['free', 'basic', 'pro'] as PlanType[]).map((plan) => {
-                  const planNames = { 
-                    free: 'Gratis', 
-                    basic: 'Básico', 
+                  const planNames = {
+                    free: 'Gratis',
+                    basic: 'Básico',
                     pro: 'Pro'
                   };
-                  const planPrices = { 
-                    free: '0€', 
-                    basic: '5.99€', 
+                  const planPrices = {
+                    free: '0€',
+                    basic: '5.99€',
                     pro: '9.99€'
                   };
                   const planDescriptions = {
@@ -2650,14 +2620,14 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                     pro: 'Ilimitado + Estadísticas'
                   };
                   const isCurrent = user.plan === plan;
-                  
+
                   return (
-                    <div 
+                    <div
                       key={plan}
                       className={`
                         p-4 rounded-lg border-2 transition-all relative
-                        ${isCurrent 
-                          ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20' 
+                        ${isCurrent
+                          ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20'
                           : 'border-gray-200 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-700 cursor-pointer'
                         }
                       `}
@@ -2682,10 +2652,10 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                             <span className="text-sm font-normal text-gray-500 dark:text-gray-400">/mes</span>
                           </p>
                         </div>
-                        
+
                         {!isCurrent && (
-                          <Button 
-                            size="sm" 
+                          <Button
+                            size="sm"
                             className="gap-2 bg-indigo-600 hover:bg-indigo-700"
                             disabled={isChangingPlan}
                             onClick={(e) => {
@@ -2708,7 +2678,7 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                   );
                 })}
               </div>
-              
+
               <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
                 <p className="text-sm text-blue-800 dark:text-blue-200">
                   <AlertCircle className="w-4 h-4 inline mr-2" />
@@ -2718,66 +2688,55 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
             </TabsContent>
 
             <TabsContent value="billing" className="space-y-4 mt-4">
-              {/* TODO: INTEGRACIÓN COMPLETA CON STRIPE AQUÍ */}
-              {/* 
-                IMPLEMENTACIÓN RECOMENDADA:
-                1. Usar Stripe Elements para mostrar/gestionar tarjetas guardadas
-                2. Mostrar historial de facturas desde Stripe
-                3. Permitir cambiar método de pago por defecto
-                4. Mostrar estado de suscripción (activa, cancelada, etc.)
-                
-                ENDPOINTS NECESARIOS:
-                - POST /api/stripe/create-checkout-session (para upgrades)
-                - POST /api/stripe/change-plan (para cambios entre planes pagos)
-                - POST /api/stripe/cancel-subscription (para cancelaciones)
-                - GET /api/stripe/invoices (para historial)
-              */}
-              
-              <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
-                <div className="flex items-center gap-3 mb-4">
-                  <CreditCard className="w-8 h-8 text-indigo-600" />
+              <div className="bg-gray-50 dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700">
+                <div className="flex items-center gap-4 mb-6">
+                  <div className="w-12 h-12 bg-indigo-100 dark:bg-indigo-900/50 rounded-full flex items-center justify-center">
+                    <CreditCard className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
+                  </div>
                   <div>
-                    <h3 className="font-semibold">Método de pago</h3>
-                    <p className="text-sm text-gray-500">
-                      {user.plan === 'free' 
-                        ? 'No se requiere método de pago para el plan Gratis' 
-                        : 'Gestión de pagos no configurada'}
+                    <h3 className="font-semibold text-lg text-gray-900 dark:text-white">Facturación y Pagos</h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      {user.plan === 'free'
+                        ? 'Estás en el plan gratuito. No se requieren métodos de pago.'
+                        : 'Gestiona tus métodos de pago, facturas y suscripción a través del Portal de Stripe.'}
                     </p>
                   </div>
                 </div>
-                
+
                 {user.plan !== 'free' && (
-                  <div className="space-y-3">
-                    <div className="bg-amber-50 dark:bg-amber-900/20 p-3 rounded-lg border border-amber-200 dark:border-amber-800">
-                      <p className="text-sm text-amber-800 dark:text-amber-200">
-                        <AlertCircle className="w-4 h-4 inline mr-2" />
-                        Aquí iría la integración con Stripe para gestionar tus pagos.
-                      </p>
+                  <div className="space-y-4">
+                    <div className="bg-white dark:bg-gray-900 p-4 rounded-xl border border-gray-100 dark:border-gray-800 flex items-center justify-between">
+                      <div className="flex flex-col">
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Portal de Cliente seguro</span>
+                        <span className="text-xs text-gray-500">Descarga facturas, cancela plan o modifica tarjeta</span>
+                      </div>
+                      <Button
+                        onClick={handleManageBilling}
+                        disabled={isManagingBilling}
+                        className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white"
+                      >
+                        {isManagingBilling ? (
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <ExternalLink className="w-4 h-4" />
+                        )}
+                        Abrir Portal
+                      </Button>
                     </div>
-                    
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="w-full mt-2"
-                      disabled
-                    >
-                      Gestionar método de pago (Próximamente)
-                    </Button>
                   </div>
                 )}
-                
+
                 {user.plan === 'free' && (
-                  <div className="text-center py-4">
-                    <p className="text-sm text-gray-500 mb-4">
-                      Actualiza a un plan de pago para gestionar tu método de pago
+                  <div className="text-center py-6 bg-white dark:bg-gray-900 rounded-xl border border-dashed border-gray-300 dark:border-gray-700">
+                    <p className="text-sm text-gray-500 mb-4 px-4">
+                      Actualiza a un plan de pago para gestionar tus métodos de pago y facturación.
                     </p>
-                    <Button 
-                      size="sm" 
+                    <Button
                       onClick={() => setSettingsTab('plan')}
-                      className="gap-2"
+                      className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white"
                     >
                       <Crown className="w-4 h-4" />
-                      Ver planes de pago
+                      Ver planes Pro
                     </Button>
                   </div>
                 )}
@@ -2795,13 +2754,13 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                     <p className="text-sm text-gray-500">Estamos aquí para ayudarte</p>
                   </div>
                 </div>
-                
+
                 <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
                   ¿Tienes problemas técnicos, preguntas sobre tu facturación o necesitas ayuda con la configuración?
                   Envía un correo a soporte@feedbackflow.com
                 </p>
 
-                <Button 
+                <Button
                   className="w-full gap-2 bg-blue-600 hover:bg-blue-700"
                   onClick={() => {
                     window.open(`mailto:soporte@feedbackflow.com?subject=Soporte - ${user.businessName}`, '_blank');
@@ -2831,10 +2790,10 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                     <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                       Esto eliminará permanentemente tu negocio, todos los comentarios y datos asociados. No se puede deshacer.
                     </p>
-                    
+
                     {!showDeleteConfirm ? (
-                      <Button 
-                        variant="destructive" 
+                      <Button
+                        variant="destructive"
                         onClick={() => setShowDeleteConfirm(true)}
                         className="w-full"
                       >
@@ -2853,8 +2812,8 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                           className="border-red-300"
                         />
                         <div className="flex gap-2">
-                          <Button 
-                            variant="outline" 
+                          <Button
+                            variant="outline"
                             className="flex-1"
                             onClick={() => {
                               setShowDeleteConfirm(false);
@@ -2864,8 +2823,8 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                             <X className="w-4 h-4 mr-2" />
                             Cancelar
                           </Button>
-                          <Button 
-                            variant="destructive" 
+                          <Button
+                            variant="destructive"
                             className="flex-1"
                             onClick={handleDeleteAccount}
                             disabled={deleteConfirmText !== user.businessName}
@@ -2893,31 +2852,31 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
               ¿Eliminar comentario?
             </DialogTitle>
             <DialogDescription asChild>
-            <div className="pt-4 space-y-3">
-              <div>
-                Estás a punto de eliminar este comentario de la vista.
-              </div>
-
-              {!isPro && (
-                <div className="bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-500 p-4 rounded-r-lg space-y-1">
-                  <div className="text-sm text-amber-800 dark:text-amber-200 font-medium">
-                    Importante: Este comentario seguirá contando para tu límite mensual.
-                  </div>
-                  <div className="text-sm text-amber-700 dark:text-amber-300">
-                    Has usado {limits.maxCommentsPerMonth - remaining} de {limits.maxCommentsPerMonth} comentarios este mes.
-                  </div>
+              <div className="pt-4 space-y-3">
+                <div>
+                  Estás a punto de eliminar este comentario de la vista.
                 </div>
-              )}
 
-              <div className="text-sm text-gray-500">
-                Eliminar este comentario no hará que el problema desaparezca, solo evitará que puedas solucionarlo.
+                {!isPro && (
+                  <div className="bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-500 p-4 rounded-r-lg space-y-1">
+                    <div className="text-sm text-amber-800 dark:text-amber-200 font-medium">
+                      Importante: Este comentario seguirá contando para tu límite mensual.
+                    </div>
+                    <div className="text-sm text-amber-700 dark:text-amber-300">
+                      Has usado {limits.maxCommentsPerMonth - remaining} de {limits.maxCommentsPerMonth} comentarios este mes.
+                    </div>
+                  </div>
+                )}
+
+                <div className="text-sm text-gray-500">
+                  Eliminar este comentario no hará que el problema desaparezca, solo evitará que puedas solucionarlo.
+                </div>
               </div>
-            </div>
-          </DialogDescription>
+            </DialogDescription>
 
 
           </DialogHeader>
-          
+
           <div className="flex gap-3 mt-4">
             <Button
               variant="outline"
@@ -3018,7 +2977,7 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </div >
   );
 }
 
@@ -3039,7 +2998,7 @@ const formatDate = (dateString: string): string => {
   try {
     const date = new Date(dateString);
     if (isNaN(date.getTime())) return 'Fecha inválida';
-    
+
     const now = new Date();
     const diffInMs = now.getTime() - date.getTime();
     const diffInMinutes = Math.floor(diffInMs / (1000 * 60));

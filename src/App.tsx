@@ -105,10 +105,10 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
 }
 
 // 🎫 Ruta de planes (accesible con o sin auth)
-function PlansRoute({ 
-  children, 
-  hasRegistrationData 
-}: { 
+function PlansRoute({
+  children,
+  hasRegistrationData
+}: {
   children: React.ReactNode;
   hasRegistrationData: boolean;
 }) {
@@ -118,8 +118,15 @@ function PlansRoute({
     return <LoadingScreen />;
   }
 
-  // Permitir si está autenticado O si tiene datos de registro
-  if (isAuthenticated || hasRegistrationData) {
+  // 1️⃣ Si ya está autenticado, redirigir siempre al Dashboard 
+  // (los usuarios registrados gestionan su plan en Ajustes)
+  if (isAuthenticated) {
+    console.log('[PlansRoute] Authenticated user, redirecting to dashboard');
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  // 2️⃣ Si NO está autenticado, solo permitir acceso si tiene datos de registro de la etapa anterior
+  if (hasRegistrationData) {
     return <>{children}</>;
   }
 
@@ -151,10 +158,10 @@ export default function App() {
     password: string;
   } | null>(null);
 
-  const handleSelectPlan = async (plan: PlanType) => {
+  const handleSelectPlan = async (plan: PlanType): Promise<boolean> => {
     if (!registrationData) {
       console.error('[handleSelectPlan] No registration data');
-      return;
+      return false;
     }
 
     console.log('[handleSelectPlan] Registering with plan:', plan);
@@ -169,14 +176,17 @@ export default function App() {
     if (!ok) {
       toast.error('No se pudo crear la cuenta');
       navigate('/register', { replace: true });
-      return;
+      return false;
     }
 
-    setRegistrationData(null);
-    
-    setTimeout(() => {
-      navigate('/dashboard', { replace: true });
-    }, 200);
+    if (plan === 'free') {
+      setRegistrationData(null);
+      setTimeout(() => {
+        navigate('/dashboard', { replace: true });
+      }, 200);
+    }
+
+    return true;
   };
 
   console.log('[App] State:', { isLoading, isAuthenticated, hasUser: !!user });
@@ -196,19 +206,19 @@ export default function App() {
             </PublicRoute>
           }
         />
-        
+
         <Route
           path="/register"
           element={
             <PublicRoute>
-              <RegisterPage 
-                onSetRegistrationData={setRegistrationData} 
-                themeProps={themeProps} 
+              <RegisterPage
+                onSetRegistrationData={setRegistrationData}
+                themeProps={themeProps}
               />
             </PublicRoute>
           }
         />
-        
+
         <Route
           path="/plans"
           element={
@@ -242,27 +252,27 @@ export default function App() {
         />
 
         {/* 🏠 Ruta raíz */}
-        <Route 
-          path="/" 
+        <Route
+          path="/"
           element={
             isLoading ? (
               <LoadingScreen />
             ) : (
               <Navigate to={isAuthenticated ? "/dashboard" : "/login"} replace />
             )
-          } 
+          }
         />
 
         {/* ⚠️ Fallback - cualquier otra ruta */}
-        <Route 
-          path="*" 
+        <Route
+          path="*"
           element={
             isLoading ? (
               <LoadingScreen />
             ) : (
               <Navigate to={isAuthenticated ? "/dashboard" : "/login"} replace />
             )
-          } 
+          }
         />
       </Routes>
 

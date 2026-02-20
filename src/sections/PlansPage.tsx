@@ -13,7 +13,7 @@ import { supabase } from '@/lib/supabase'
 import { useNavigate } from 'react-router-dom';
 
 interface PlansPageProps {
-  onSelectPlan: (plan: PlanType) => void;
+  onSelectPlan: (plan: PlanType) => Promise<boolean | void> | void;
   isAuthenticated: boolean;
   user: User | null;
   themeProps: {
@@ -40,46 +40,85 @@ export function PlansPage({ onSelectPlan, isAuthenticated, user, themeProps }: P
     setIsLoading(true);
 
     try {
-      if (isAuthenticated && user) {
-        const { error } = await supabase
-          .from('businesses')
-          .update({ plan })
-          .eq('id', user.businessId);
+      // 1. Si elige "free"
+      if (plan === 'free') {
+        if (isAuthenticated) {
+          // Si ya está autenticado y estaba en otro plan, redirigir al portal para cancelar
+          const { data: { session } } = await supabase.auth.getSession();
+          const { data, error } = await supabase.functions.invoke('create-portal', {
+            body: { returnUrl: window.location.origin + '/dashboard' },
+            headers: session ? { Authorization: `Bearer ${session.access_token}` } : undefined
+          });
+          if (error || !data?.url) {
+            toast.error('Para bajar al plan Free, usa "Gestionar Suscripción" en el Dashboard.');
+          } else {
+            window.location.href = data.url;
+          }
+        } else {
+          // Registro nuevo con plan gratis
+          await onSelectPlan(plan);
+        }
+        setIsLoading(false);
+        return;
+      }
 
-        if (error) {
-          toast.error('Error al actualizar el plan');
+      // 2. Si elige "basic" o "pro"
+      let priceId = '';
+      if (plan === 'basic') {
+        priceId = isYearly ? import.meta.env.VITE_STRIPE_BASIC_YEARLY_PRICE_ID : import.meta.env.VITE_STRIPE_BASIC_MONTHLY_PRICE_ID;
+      } else if (plan === 'pro') {
+        priceId = isYearly ? import.meta.env.VITE_STRIPE_PRO_YEARLY_PRICE_ID : import.meta.env.VITE_STRIPE_PRO_MONTHLY_PRICE_ID;
+      }
+
+      // Si no está autenticado (registro nuevo), registramos el usuario primero
+      if (!isAuthenticated) {
+        const success = await onSelectPlan(plan);
+        if (success === false) {
           setIsLoading(false);
           return;
         }
+      }
 
-        const messages = {
-          free: 'Plan gratuito activado',
-          basic: 'Plan Básico activado',
-          pro: 'Plan Pro activado'
-        };
+      // 3. Generar sesión de pago y redirigir
+      const frontendUrl = window.location.origin;
+      const { data: { session } } = await supabase.auth.getSession();
+      const { data, error } = await supabase.functions.invoke('create-checkout', {
+        body: {
+          priceId,
+          successUrl: `${frontendUrl}/dashboard?session_id={CHECKOUT_SESSION_ID}`,
+          cancelUrl: `${frontendUrl}/plans`
+        },
+        headers: session ? { Authorization: `Bearer ${session.access_token}` } : undefined
+      });
 
-        toast.success(messages[plan]);
-        // Usar window.location para forzar recarga y actualizar estado
-        window.location.href = '/dashboard';
+      if (error) {
+        console.error(error);
+        toast.error('Error al contactar con el sistema de pagos');
+        setIsLoading(false);
+        return;
+      }
+
+      if (data?.url) {
+        window.location.href = data.url;
       } else {
-        await onSelectPlan(plan);
+        toast.error('Error al generar el pago');
+        setIsLoading(false);
       }
     } catch (err) {
       console.error('Error seleccionando plan:', err);
-      toast.error('Error al seleccionar el plan');
-    } finally {
+      toast.error('Error al generar el proceso de pago');
       setIsLoading(false);
     }
   };
 
   // Precios
   const prices = {
-    basic: { 
-      monthly: 5.99, 
+    basic: {
+      monthly: 5.99,
       yearly: 4.79
     },
-    pro: { 
-      monthly: 9.99, 
+    pro: {
+      monthly: 9.99,
       yearly: 7.99
     },
   };
@@ -103,7 +142,7 @@ export function PlansPage({ onSelectPlan, isAuthenticated, user, themeProps }: P
 
       <div className="max-w-6xl mx-auto pt-16">
         {/* Header */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           className="text-center mb-8"
@@ -125,7 +164,7 @@ export function PlansPage({ onSelectPlan, isAuthenticated, user, themeProps }: P
         </motion.div>
 
         {/* Toggle Mensual/Anual */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.2 }}
@@ -135,8 +174,8 @@ export function PlansPage({ onSelectPlan, isAuthenticated, user, themeProps }: P
             Mensual
           </span>
           <div className="flex items-center gap-2">
-            <Switch 
-              checked={isYearly} 
+            <Switch
+              checked={isYearly}
               onCheckedChange={setIsYearly}
               className="data-[state=checked]:bg-indigo-600"
             />
@@ -151,9 +190,9 @@ export function PlansPage({ onSelectPlan, isAuthenticated, user, themeProps }: P
 
         {/* Tres columnas: Free | Basic | Pro */}
         <div className="grid md:grid-cols-3 gap-6 max-w-6xl mx-auto">
-          
+
           {/* FREE - GRATIS */}
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             className="h-full"
@@ -169,12 +208,12 @@ export function PlansPage({ onSelectPlan, isAuthenticated, user, themeProps }: P
                     <p className="text-xs text-gray-500 dark:text-gray-400">Para probar</p>
                   </div>
                 </div>
-                
+
                 <div className="flex items-baseline gap-1 mb-1">
                   <span className="text-3xl font-bold text-gray-900 dark:text-white">0€</span>
                   <span className="text-gray-500 dark:text-gray-400 text-sm">/mes</span>
                 </div>
-                
+
                 <div className="h-6 mb-4 flex items-center">
                   <p className="text-xs text-gray-500 dark:text-gray-400">
                     Para siempre. Sin tarjeta.
@@ -183,11 +222,11 @@ export function PlansPage({ onSelectPlan, isAuthenticated, user, themeProps }: P
 
                 <ul className="space-y-3 mb-6 text-gray-600 dark:text-gray-300 flex-grow text-sm">
                   <li className="flex items-start gap-2">
-                    <Check className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" /> 
+                    <Check className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
                     <span>QR básico</span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <Check className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" /> 
+                    <Check className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
                     <span>30 comentarios / mes</span>
                   </li>
                   <li className="flex items-start gap-2 text-gray-400 dark:text-gray-500">
@@ -204,8 +243,8 @@ export function PlansPage({ onSelectPlan, isAuthenticated, user, themeProps }: P
                   </li>
                 </ul>
 
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   className="w-full border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 h-10 mt-auto"
                   onClick={() => handleSelectPlan('free')}
                   disabled={isLoading}
@@ -221,7 +260,7 @@ export function PlansPage({ onSelectPlan, isAuthenticated, user, themeProps }: P
           </motion.div>
 
           {/* BASIC - $5.99 */}
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
@@ -238,14 +277,14 @@ export function PlansPage({ onSelectPlan, isAuthenticated, user, themeProps }: P
                     <p className="text-xs text-gray-500 dark:text-gray-400">Para negocios pequeños</p>
                   </div>
                 </div>
-                
+
                 <div className="flex items-baseline gap-1 mb-1">
                   <span className="text-3xl font-bold text-gray-900 dark:text-white">
                     {isYearly ? prices.basic.yearly : prices.basic.monthly}€
                   </span>
                   <span className="text-gray-500 dark:text-gray-400 text-sm">/mes</span>
                 </div>
-                
+
                 <div className="h-6 mb-2 flex items-center">
                   {isYearly ? (
                     <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -258,15 +297,15 @@ export function PlansPage({ onSelectPlan, isAuthenticated, user, themeProps }: P
 
                 <ul className="space-y-3 mb-6 text-gray-600 dark:text-gray-300 flex-grow text-sm">
                   <li className="flex items-start gap-2">
-                    <Check className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" /> 
+                    <Check className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
                     <span>QR personalizado</span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <Check className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" /> 
+                    <Check className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
                     <span>200 comentarios / mes</span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <Check className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" /> 
+                    <Check className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
                     <span>Exportar CSV</span>
                   </li>
                   <li className="flex items-start gap-2 text-gray-400 dark:text-gray-500">
@@ -279,7 +318,7 @@ export function PlansPage({ onSelectPlan, isAuthenticated, user, themeProps }: P
                   </li>
                 </ul>
 
-                <Button 
+                <Button
                   className="w-full bg-indigo-600 hover:bg-indigo-700 text-white h-10 mt-auto"
                   onClick={() => handleSelectPlan('basic')}
                   disabled={isLoading}
@@ -295,7 +334,7 @@ export function PlansPage({ onSelectPlan, isAuthenticated, user, themeProps }: P
           </motion.div>
 
           {/* PRO - $9.99 */}
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
@@ -305,7 +344,7 @@ export function PlansPage({ onSelectPlan, isAuthenticated, user, themeProps }: P
               <div className="absolute top-0 left-0 right-0 bg-gradient-to-r from-yellow-400 to-orange-400 text-indigo-900 text-center py-1.5 text-xs font-bold">
                 RECOMENDADO
               </div>
-              
+
               <CardContent className="p-6 pt-12 flex flex-col h-full">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center">
@@ -316,7 +355,7 @@ export function PlansPage({ onSelectPlan, isAuthenticated, user, themeProps }: P
                     <p className="text-xs text-indigo-200">Análisis completo</p>
                   </div>
                 </div>
-                
+
                 <div className="flex items-baseline gap-1 mb-1">
                   <span className="text-3xl font-bold">
                     {isYearly ? prices.pro.yearly : prices.pro.monthly}€
@@ -336,28 +375,28 @@ export function PlansPage({ onSelectPlan, isAuthenticated, user, themeProps }: P
 
                 <ul className="space-y-3 mb-6 text-indigo-100 flex-grow text-sm">
                   <li className="flex items-start gap-2">
-                    <Check className="w-4 h-4 text-yellow-300 mt-0.5 flex-shrink-0" /> 
+                    <Check className="w-4 h-4 text-yellow-300 mt-0.5 flex-shrink-0" />
                     <span>Todo lo del Básico</span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <Check className="w-4 h-4 text-yellow-300 mt-0.5 flex-shrink-0" /> 
+                    <Check className="w-4 h-4 text-yellow-300 mt-0.5 flex-shrink-0" />
                     <span>Comentarios ilimitados</span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <Check className="w-4 h-4 text-yellow-300 mt-0.5 flex-shrink-0" /> 
+                    <Check className="w-4 h-4 text-yellow-300 mt-0.5 flex-shrink-0" />
                     <span>Estadísticas avanzadas</span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <Check className="w-4 h-4 text-yellow-300 mt-0.5 flex-shrink-0" /> 
+                    <Check className="w-4 h-4 text-yellow-300 mt-0.5 flex-shrink-0" />
                     <span>Exportar Excel/PDF</span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <Check className="w-4 h-4 text-yellow-300 mt-0.5 flex-shrink-0" /> 
+                    <Check className="w-4 h-4 text-yellow-300 mt-0.5 flex-shrink-0" />
                     <span>Soporte prioritario</span>
                   </li>
                 </ul>
 
-                <Button 
+                <Button
                   className="w-full bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-500 hover:to-amber-600 text-yellow-950 font-bold h-10 mt-auto shadow-lg hover:shadow-xl transition-all border-0"
                   onClick={() => handleSelectPlan('pro')}
                   disabled={isLoading}
@@ -392,7 +431,7 @@ export function PlansPage({ onSelectPlan, isAuthenticated, user, themeProps }: P
         </motion.div>
 
         {/* Características adicionales */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
@@ -407,7 +446,7 @@ export function PlansPage({ onSelectPlan, isAuthenticated, user, themeProps }: P
               <p className="text-sm text-gray-500 dark:text-gray-400">El plan Free es gratis para siempre</p>
             </div>
           </div>
-          
+
           <div className="flex items-start gap-3 p-4 bg-white/50 dark:bg-gray-800/50 rounded-xl">
             <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0">
               <Sparkles className="w-5 h-5 text-blue-600 dark:text-blue-400" />

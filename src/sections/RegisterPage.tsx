@@ -76,13 +76,10 @@ export function RegisterPage({ onSetRegistrationData, themeProps }: RegisterPage
     return Object.keys(newErrors).length === 0
   }
 
-  // Verificar si el email ya existe en la base de datos
+  // Verificar si el email ya existe en la base de datos de forma segura
   const checkEmailExists = async (email: string) => {
     const { data, error } = await supabase
-      .from('businesses')
-      .select('email')
-      .eq('email', email.trim().toLowerCase())
-      .maybeSingle();
+      .rpc('check_email_exists', { email_to_check: email.trim().toLowerCase() });
     
     if (error) {
       console.error('Error checking email:', error);
