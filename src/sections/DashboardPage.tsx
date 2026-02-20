@@ -2661,8 +2661,13 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                       };
                       const planPrices = {
                         free: '0€',
+<<<<<<< HEAD
                         basic: isYearly ? '4,79€' : '5.99€',
                         pro: isYearly ? '7,99€' : '9.99€'
+=======
+                        basic: isYearly ? '71,88€' : '5.99€',
+                        pro: isYearly ? '95.88€' : '7.99€'
+>>>>>>> f5833cdf5dc7e8144f73a86972b743c9f48ffe81
                       };
                       const planDescriptions = {
                         free: '30 comentarios/mes',
