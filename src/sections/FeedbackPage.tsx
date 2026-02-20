@@ -91,15 +91,23 @@ export function FeedbackPage({ businessId }: FeedbackPageProps) {
 
   // Detectar tema del sistema
   useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     setIsDark(mediaQuery.matches);
 
-    const handleChange = (e: MediaQueryListEvent) => {
+    const handleChange = (e: MediaQueryListEvent | MediaQueryList) => {
       setIsDark(e.matches);
     };
 
-    mediaQuery.addEventListener('change', handleChange);
-    return () => mediaQuery.removeEventListener('change', handleChange);
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener('change', handleChange as any);
+      return () => mediaQuery.removeEventListener('change', handleChange as any);
+    } else if (mediaQuery.addListener) {
+      // Fallback for older browsers (e.g. iOS < 14)
+      mediaQuery.addListener(handleChange as any);
+      return () => mediaQuery.removeListener(handleChange as any);
+    }
   }, []);
 
   const handleSubmit = async () => {

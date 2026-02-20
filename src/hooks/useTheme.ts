@@ -22,18 +22,18 @@ export function useTheme() {
     if (!isInitialized) return;
 
     const root = window.document.documentElement;
-    
+
     const applyTheme = () => {
       let resolved: 'light' | 'dark';
-      
+
       if (theme === 'system') {
         resolved = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
       } else {
         resolved = theme;
       }
-      
+
       setResolvedTheme(resolved);
-      
+
       if (resolved === 'dark') {
         root.classList.add('dark');
       } else {
@@ -47,8 +47,15 @@ export function useTheme() {
     if (theme === 'system') {
       const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
       const handleChange = () => applyTheme();
-      mediaQuery.addEventListener('change', handleChange);
-      return () => mediaQuery.removeEventListener('change', handleChange);
+
+      if (mediaQuery.addEventListener) {
+        mediaQuery.addEventListener('change', handleChange);
+        return () => mediaQuery.removeEventListener('change', handleChange);
+      } else if (mediaQuery.addListener) {
+        // Fallback for older browsers (e.g. iOS < 14)
+        mediaQuery.addListener(handleChange);
+        return () => mediaQuery.removeListener(handleChange);
+      }
     }
   }, [theme, isInitialized]);
 
