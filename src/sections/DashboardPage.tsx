@@ -2648,7 +2648,7 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                         >
                           Anual
                           <span className="text-[10px] bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300 px-1.5 py-0.5 rounded-full font-bold">
-                            -16%
+                            -20%
                           </span>
                         </button>
                       </div>
@@ -2661,8 +2661,8 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                       };
                       const planPrices = {
                         free: '0€',
-                        basic: isYearly ? '59.90€' : '5.99€',
-                        pro: isYearly ? '99.90€' : '9.99€'
+                        basic: isYearly ? '4,79€' : '5.99€',
+                        pro: isYearly ? '7,99€' : '9.99€'
                       };
                       const planDescriptions = {
                         free: '30 comentarios/mes',
@@ -2695,7 +2695,7 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                             <p className="text-lg font-bold text-gray-900 dark:text-white mt-1">
                               {planPrices[plan]}
                               <span className="text-sm font-normal text-gray-500 dark:text-gray-400">
-                                /{plan === 'free' ? 'siempre' : isYearly ? 'año' : 'mes'}
+                                /{plan === 'free' ? 'siempre' : 'mes'}
                               </span>
                             </p>
                           </div>
