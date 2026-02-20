@@ -45,7 +45,6 @@ import {
   AlertCircle,
   Crown,
   Zap,
-  ArrowRightLeft,
   ExternalLink
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
@@ -303,6 +302,7 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
 
   // NUEVO: Estado para cambio de plan
   const [isChangingPlan, setIsChangingPlan] = useState(false);
+  const [isYearly, setIsYearly] = useState(false);
 
   // Verificar permisos según plan
   const canExport = limits.canExport;
@@ -522,11 +522,14 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
     setIsChangingEmail(true);
 
     try {
-      // 1. Verificar sesión actual (sin reautenticar para evitar doble llamada)
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      // 1. Verificar la contraseña actual ingresada por el usuario
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: user.email, // el email actual
+        password: emailPassword
+      });
 
-      if (sessionError || !session) {
-        toast.error('Sesión expirada. Inicia sesión de nuevo.');
+      if (signInError) {
+        toast.error('La contraseña actual es incorrecta.');
         return;
       }
 
@@ -552,28 +555,17 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
           return;
         }
 
-        toast.error(authError.message || 'Error al cambiar email');
+        toast.error(authError.message || 'Error al solicitar el cambio de email');
         return;
       }
 
-      // 3. Actualizar en tabla businesses solo si auth tuvo éxito
-      const { error: dbError } = await supabase
-        .from('businesses')
-        .update({
-          email: trimmedEmail,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', user.businessId)
-        .eq('owner_id', user.id);
-
-      if (dbError) {
-        console.error('Database error:', dbError);
-        toast.error('Email solicitado, pero error al guardar en base de datos');
-        return;
-      }
+      // IMPORTANTE: Ya no necesitamos actualizar la tabla 'businesses' manualmente aquí.
+      // Hemos creado un Trigger en PostgreSQL (on_auth_user_email_updated) que clonará
+      // el nuevo email a la tabla businesses automáticamente SÓLO cuando el usuario 
+      // verifique su nuevo correo haciendo clic en el enlace.
 
       toast.success(
-        'Solicitud enviada. Revisa tu correo nuevo (y también la carpeta de spam) para confirmar.',
+        'Solicitud enviada. Revisa tu correo nuevo (y también la carpeta de spam) para confirmar el cambio.',
         { duration: 6000 }
       );
 
@@ -1203,8 +1195,8 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
       // Si el plan actual es gratis, enviarlo a checkout para crear su primera suscripción
       if (user.plan === 'free') {
         const priceId = newPlan === 'basic'
-          ? import.meta.env.VITE_STRIPE_BASIC_MONTHLY_PRICE_ID
-          : import.meta.env.VITE_STRIPE_PRO_MONTHLY_PRICE_ID;
+          ? (isYearly ? import.meta.env.VITE_STRIPE_BASIC_YEARLY_PRICE_ID : import.meta.env.VITE_STRIPE_BASIC_MONTHLY_PRICE_ID)
+          : (isYearly ? import.meta.env.VITE_STRIPE_PRO_YEARLY_PRICE_ID : import.meta.env.VITE_STRIPE_PRO_MONTHLY_PRICE_ID);
 
         const { data, error } = await supabase.functions.invoke('create-checkout', {
           body: {
@@ -2395,10 +2387,9 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
           </DialogHeader>
 
           <Tabs value={settingsTab} onValueChange={setSettingsTab} className="mt-4">
-            <TabsList className="grid w-full grid-cols-5">
+            <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="general">General</TabsTrigger>
-              <TabsTrigger value="plan">Plan</TabsTrigger>
-              <TabsTrigger value="billing">Pagos</TabsTrigger>
+              <TabsTrigger value="billing">Suscripción</TabsTrigger>
               <TabsTrigger value="support">Soporte</TabsTrigger>
               <TabsTrigger value="danger" className="text-red-600">Cuenta</TabsTrigger>
             </TabsList>
@@ -2601,92 +2592,6 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
               </div>
             </TabsContent>
 
-            <TabsContent value="plan" className="space-y-4 mt-4">
-              <div className="grid gap-4">
-                {(['free', 'basic', 'pro'] as PlanType[]).map((plan) => {
-                  const planNames = {
-                    free: 'Gratis',
-                    basic: 'Básico',
-                    pro: 'Pro'
-                  };
-                  const planPrices = {
-                    free: '0€',
-                    basic: '5.99€',
-                    pro: '9.99€'
-                  };
-                  const planDescriptions = {
-                    free: '30 comentarios/mes',
-                    basic: '200 comentarios/mes + CSV',
-                    pro: 'Ilimitado + Estadísticas'
-                  };
-                  const isCurrent = user.plan === plan;
-
-                  return (
-                    <div
-                      key={plan}
-                      className={`
-                        p-4 rounded-lg border-2 transition-all relative
-                        ${isCurrent
-                          ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20'
-                          : 'border-gray-200 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-700 cursor-pointer'
-                        }
-                      `}
-                      onClick={() => !isCurrent && handleChangePlan(plan)}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3">
-                            <h3 className="font-semibold text-gray-900 dark:text-white">{planNames[plan]}</h3>
-                            {isCurrent && (
-                              <Badge className="bg-indigo-600">
-                                <Check className="w-3 h-3 mr-1" />
-                                Actual
-                              </Badge>
-                            )}
-                          </div>
-                          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                            {planDescriptions[plan]}
-                          </p>
-                          <p className="text-lg font-bold text-gray-900 dark:text-white mt-2">
-                            {planPrices[plan]}
-                            <span className="text-sm font-normal text-gray-500 dark:text-gray-400">/mes</span>
-                          </p>
-                        </div>
-
-                        {!isCurrent && (
-                          <Button
-                            size="sm"
-                            className="gap-2 bg-indigo-600 hover:bg-indigo-700"
-                            disabled={isChangingPlan}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleChangePlan(plan);
-                            }}
-                          >
-                            {isChangingPlan ? (
-                              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                            ) : (
-                              <>
-                                <ArrowRightLeft className="w-4 h-4" />
-                                Seleccionar
-                              </>
-                            )}
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
-                <p className="text-sm text-blue-800 dark:text-blue-200">
-                  <AlertCircle className="w-4 h-4 inline mr-2" />
-                  <strong>Sin compromiso:</strong> Cambia de plan cuando quieras.
-                </p>
-              </div>
-            </TabsContent>
-
             <TabsContent value="billing" className="space-y-4 mt-4">
               <div className="bg-gray-50 dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700">
                 <div className="flex items-center gap-4 mb-6">
@@ -2694,50 +2599,127 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                     <CreditCard className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-lg text-gray-900 dark:text-white">Facturación y Pagos</h3>
+                    <h3 className="font-semibold text-lg text-gray-900 dark:text-white">Estado de tu Suscripción</h3>
                     <p className="text-sm text-gray-500 dark:text-gray-400">
                       {user.plan === 'free'
-                        ? 'Estás en el plan gratuito. No se requieren métodos de pago.'
-                        : 'Gestiona tus métodos de pago, facturas y suscripción a través del Portal de Stripe.'}
+                        ? 'Actualmente estás utilizando la versión gratuita. Elige un plan Pro para desbloquear todas las funciones.'
+                        : 'Gestiona tus métodos de pago, facturas y tipo de plan a través de nuestro portal seguro de Stripe.'}
                     </p>
                   </div>
                 </div>
 
                 {user.plan !== 'free' && (
                   <div className="space-y-4">
-                    <div className="bg-white dark:bg-gray-900 p-4 rounded-xl border border-gray-100 dark:border-gray-800 flex items-center justify-between">
+                    <div className="bg-white dark:bg-gray-900 p-4 rounded-xl border border-gray-100 dark:border-gray-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                       <div className="flex flex-col">
                         <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Portal de Cliente seguro</span>
-                        <span className="text-xs text-gray-500">Descarga facturas, cancela plan o modifica tarjeta</span>
+                        <span className="text-xs text-gray-500">Descarga facturas, cambia entre planes o gestiona tu tarjeta de crédito.</span>
                       </div>
                       <Button
                         onClick={handleManageBilling}
                         disabled={isManagingBilling}
-                        className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white"
+                        className="w-full sm:w-auto gap-2 bg-indigo-600 hover:bg-indigo-700 text-white"
                       >
                         {isManagingBilling ? (
                           <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                         ) : (
                           <ExternalLink className="w-4 h-4" />
                         )}
-                        Abrir Portal
+                        Gestionar Suscripción
                       </Button>
                     </div>
                   </div>
                 )}
 
                 {user.plan === 'free' && (
-                  <div className="text-center py-6 bg-white dark:bg-gray-900 rounded-xl border border-dashed border-gray-300 dark:border-gray-700">
-                    <p className="text-sm text-gray-500 mb-4 px-4">
-                      Actualiza a un plan de pago para gestionar tus métodos de pago y facturación.
-                    </p>
-                    <Button
-                      onClick={() => setSettingsTab('plan')}
-                      className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white"
-                    >
-                      <Crown className="w-4 h-4" />
-                      Ver planes Pro
-                    </Button>
+                  <div className="grid gap-4 mt-8">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
+                      <h4 className="font-semibold text-gray-900 dark:text-white">Planes Disponibles</h4>
+                      <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg self-start sm:self-auto w-full sm:w-auto">
+                        <button
+                          onClick={() => setIsYearly(false)}
+                          className={`flex-1 sm:flex-none px-3 py-1.5 rounded-md text-sm font-medium transition-all ${!isYearly ? 'bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-white' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'}`}
+                        >
+                          Mensual
+                        </button>
+                        <button
+                          onClick={() => setIsYearly(true)}
+                          className={`flex-1 sm:flex-none px-3 py-1.5 rounded-md text-sm font-medium transition-all flex items-center justify-center gap-2 ${isYearly ? 'bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-white' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'}`}
+                        >
+                          Anual
+                          <span className="text-[10px] bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300 px-1.5 py-0.5 rounded-full font-bold">
+                            -16%
+                          </span>
+                        </button>
+                      </div>
+                    </div>
+                    {(['free', 'basic', 'pro'] as PlanType[]).map((plan) => {
+                      const planNames = {
+                        free: 'Gratis',
+                        basic: 'Básico',
+                        pro: 'Pro'
+                      };
+                      const planPrices = {
+                        free: '0€',
+                        basic: isYearly ? '59.90€' : '5.99€',
+                        pro: isYearly ? '99.90€' : '9.99€'
+                      };
+                      const planDescriptions = {
+                        free: '30 comentarios/mes',
+                        basic: '200 comentarios/mes + CSV',
+                        pro: 'Ilimitado + Estadísticas'
+                      };
+                      const isCurrent = user.plan === plan;
+
+                      return (
+                        <div
+                          key={plan}
+                          className={`
+                          p-4 rounded-lg flex flex-col sm:flex-row sm:items-center items-start gap-4 transition-all bg-white dark:bg-gray-900 border
+                          ${isCurrent ? 'border-indigo-500 border-2 shadow-sm' : 'border-gray-200 dark:border-gray-700'}
+                        `}
+                        >
+                          <div className="flex-1 w-full">
+                            <div className="flex items-center gap-3">
+                              <h3 className="font-semibold text-gray-900 dark:text-white">{planNames[plan]}</h3>
+                              {isCurrent && (
+                                <Badge className="bg-indigo-600 hover:bg-indigo-700 text-xs py-0 h-5">
+                                  <Check className="w-3 h-3 mr-1" />
+                                  Tu plan actual
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                              {planDescriptions[plan]}
+                            </p>
+                            <p className="text-lg font-bold text-gray-900 dark:text-white mt-1">
+                              {planPrices[plan]}
+                              <span className="text-sm font-normal text-gray-500 dark:text-gray-400">
+                                /{plan === 'free' ? 'siempre' : isYearly ? 'año' : 'mes'}
+                              </span>
+                            </p>
+                          </div>
+
+                          {!isCurrent && (
+                            <Button
+                              size="sm"
+                              className="w-full sm:w-auto gap-2 bg-indigo-600 hover:bg-indigo-700"
+                              disabled={isChangingPlan}
+                              onClick={() => handleChangePlan(plan)}
+                            >
+                              {isChangingPlan ? (
+                                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                              ) : (
+                                <>
+                                  <Crown className="w-4 h-4" />
+                                  Suscribirme
+                                </>
+                              )}
+                            </Button>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
