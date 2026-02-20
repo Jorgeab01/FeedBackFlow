@@ -8,6 +8,8 @@ import { DashboardPage } from '@/sections/DashboardPage';
 import { FeedbackPage } from '@/sections/FeedbackPage';
 import { MaintenancePage } from '@/sections/MaintenancePage';
 import { TermsPage } from '@/sections/TermsPage';
+import { OnboardingPage } from '@/sections/OnboardingPage';
+import { VerifyEmailPage } from '@/sections/VerifyEmailPage';
 
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
@@ -59,6 +61,9 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
 
   // ✅ Si ya mostramos el contenido una vez y solo está refrescando token, no mostrar loader
   if (hasShownContent.current && isAuthenticated && user) {
+    if (user.businessName === 'Configurando Negocio...') {
+      return <Navigate to="/onboarding" replace />;
+    }
     console.log('[PrivateRoute] ✅ Content already shown, keeping it visible');
     return <>{children}</>;
   }
@@ -78,6 +83,11 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
   if (!isAuthenticated) {
     console.log('[PrivateRoute] ❌ Not authenticated, redirecting to login');
     return <Navigate to="/login" replace />;
+  }
+
+  // 3.5️⃣ Forzar Onboarding si el usuario no tiene nombre de negocio (ej: Google OAuth)
+  if (user?.businessName === 'Configurando Negocio...') {
+    return <Navigate to="/onboarding" replace />;
   }
 
   // 4️⃣ Solo renderizar cuando todo está listo
@@ -137,7 +147,7 @@ function PlansRoute({
 }
 
 export default function App() {
-  const { user, isAuthenticated, login, isLoading, logout, register } = useAuth();
+  const { user, isAuthenticated, login, loginWithGoogle, isLoading, logout, register } = useAuth();
   const themeProps = useTheme();
   const navigate = useNavigate();
 
@@ -167,16 +177,22 @@ export default function App() {
 
     console.log('[handleSelectPlan] Registering with plan:', plan);
 
-    const ok = await register(
+    const result = await register(
       registrationData.businessName,
       registrationData.email,
       registrationData.password,
       plan
     );
 
-    if (!ok) {
+    if (!result.success) {
       toast.error('No se pudo crear la cuenta');
       navigate('/register', { replace: true });
+      return false;
+    }
+
+    if (result.requiresEmailVerification) {
+      setRegistrationData(null);
+      navigate('/verify-email', { replace: true });
       return false;
     }
 
@@ -206,9 +222,14 @@ export default function App() {
           path="/login"
           element={
             <PublicRoute>
-              <LoginPage onLogin={login} themeProps={themeProps} />
+              <LoginPage onLogin={login} onGoogleLogin={loginWithGoogle} themeProps={themeProps} />
             </PublicRoute>
           }
+        />
+
+        <Route
+          path="/verify-email"
+          element={<VerifyEmailPage themeProps={themeProps} />}
         />
 
         <Route
@@ -217,6 +238,7 @@ export default function App() {
             <PublicRoute>
               <RegisterPage
                 onSetRegistrationData={setRegistrationData}
+                onGoogleLogin={loginWithGoogle}
                 themeProps={themeProps}
               />
             </PublicRoute>
@@ -252,6 +274,22 @@ export default function App() {
                 <LoadingScreen />
               )}
             </PrivateRoute>
+          }
+        />
+
+        {/* 📋 Ruta Onboarding para Google Users */}
+        <Route
+          path="/onboarding"
+          element={
+            !isLoading && isAuthenticated && user ? (
+              user.businessName === 'Configurando Negocio...' ? (
+                <OnboardingPage user={user} themeProps={themeProps} />
+              ) : (
+                <Navigate to="/dashboard" replace />
+              )
+            ) : (
+              <LoadingScreen />
+            )
           }
         />
 

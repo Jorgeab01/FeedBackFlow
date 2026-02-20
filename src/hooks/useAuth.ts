@@ -142,6 +142,28 @@ export function useAuth() {
     };
   }, [initializeAuth, hydrateUser, clearAuth, user]);
 
+  const loginWithGoogle = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin + '/dashboard',
+        }
+      });
+      if (error) {
+        console.error('Google login error:', error);
+        return false;
+      }
+      return true; // The redirect will happen automatically
+    } catch (err) {
+      console.error('Google login exception:', err);
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
   const login = useCallback(async (email: string, password: string) => {
     setIsLoading(true);
     try {
@@ -173,34 +195,36 @@ export function useAuth() {
   ) => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.auth.signUp({ email, password });
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            businessName,
+            plan
+          }
+        }
+      });
 
       if (error || !data.user) {
         console.error('Signup error:', error);
-        return false;
+        return { success: false };
       }
 
-      const { error: businessError } = await supabase
-        .from('businesses')
-        .insert({
-          name: businessName,
-          email,
-          plan,
-          owner_id: data.user.id,
-          is_active: true
-        });
+      // Supabase sets session to null when email confirmation is required
+      const requiresEmailVerification = data.user && !data.session;
 
-      if (businessError) {
-        console.error('Business creation error:', businessError);
-        await supabase.auth.signOut();
-        return false;
+      if (!requiresEmailVerification) {
+        await hydrateUser(data.user);
       }
 
-      await hydrateUser(data.user);
-      return true;
+      return {
+        success: true,
+        requiresEmailVerification
+      };
     } catch (err) {
       console.error('Register exception:', err);
-      return false;
+      return { success: false };
     } finally {
       setIsLoading(false);
     }
@@ -226,6 +250,7 @@ export function useAuth() {
     isAuthenticated,
     isLoading,
     login,
+    loginWithGoogle,
     register,
     logout
   };
