@@ -522,14 +522,18 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
     setIsChangingEmail(true);
 
     try {
-      // 1. Verificar la contraseña actual ingresada por el usuario
+      // 1. Verificar la contraseña actual antes de permitir el cambio
       const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: user.email, // el email actual
+        email: user.email,
         password: emailPassword
       });
 
       if (signInError) {
-        toast.error('La contraseña actual es incorrecta.');
+        if (signInError.status === 429) {
+          toast.error('Límite de intentos alcanzado. Espera unos minutos.');
+        } else {
+          toast.error('La contraseña actual es incorrecta.');
+        }
         return;
       }
 
@@ -541,11 +545,14 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
       if (authError) {
         console.error('Auth error:', authError);
 
-        // Manejo específico de rate limiting
-        if (authError.status === 429 || authError.message?.includes('rate limit')) {
+        // Manejo específico de rate limiting (Error 429)
+        if (authError.status === 429 || authError.message?.toLowerCase().includes('rate limit')) {
           toast.error(
-            'Límite de cambios alcanzado. Solo puedes cambiar el email 1 vez por hora. Inténtalo más tarde.',
-            { duration: 6000 }
+            'Límite alcanzado',
+            {
+              duration: 8000,
+              description: 'Contacta con soporte para cambiar tu correo.'
+            }
           );
           return;
         }
@@ -2661,13 +2668,8 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                       };
                       const planPrices = {
                         free: '0€',
-<<<<<<< HEAD
-                        basic: isYearly ? '4,79€' : '5.99€',
-                        pro: isYearly ? '7,99€' : '9.99€'
-=======
-                        basic: isYearly ? '71,88€' : '5.99€',
-                        pro: isYearly ? '95.88€' : '7.99€'
->>>>>>> f5833cdf5dc7e8144f73a86972b743c9f48ffe81
+                        basic: isYearly ? '59.90€' : '5.99€',
+                        pro: isYearly ? '99.90€' : '9.99€'
                       };
                       const planDescriptions = {
                         free: '30 comentarios/mes',

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -13,6 +13,7 @@ import {
   CardTitle
 } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Store,
   ArrowLeft,
@@ -41,17 +42,37 @@ interface FormErrors {
   email?: string;
   password?: string;
   confirmPassword?: string;
+  terms?: string;
 }
 
 
 export function RegisterPage({ onSetRegistrationData, themeProps }: RegisterPageProps) {
-  const [businessName, setBusinessName] = useState('')
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
+  const [businessName, setBusinessName] = useState(() => sessionStorage.getItem('reg_businessName') || '')
+  const [email, setEmail] = useState(() => sessionStorage.getItem('reg_email') || '')
+  const [password, setPassword] = useState(() => sessionStorage.getItem('reg_password') || '')
+  const [confirmPassword, setConfirmPassword] = useState(() => sessionStorage.getItem('reg_confirmPassword') || '')
+  const [acceptedTerms, setAcceptedTerms] = useState(() => sessionStorage.getItem('reg_acceptedTerms') === 'true')
   const [isLoading, setIsLoading] = useState(false)
   const [errors, setErrors] = useState<FormErrors>({})
   const navigate = useNavigate();
+
+  // Guardar estado en sessionStorage para no perderlo al navegar a Términos
+  useEffect(() => {
+    sessionStorage.setItem('reg_businessName', businessName);
+    sessionStorage.setItem('reg_email', email);
+    sessionStorage.setItem('reg_password', password);
+    sessionStorage.setItem('reg_confirmPassword', confirmPassword);
+    sessionStorage.setItem('reg_acceptedTerms', String(acceptedTerms));
+  }, [businessName, email, password, confirmPassword, acceptedTerms]);
+
+  // Limpiar sesión al finalizar el registro con éxito
+  const clearSessionStorage = () => {
+    sessionStorage.removeItem('reg_businessName');
+    sessionStorage.removeItem('reg_email');
+    sessionStorage.removeItem('reg_password');
+    sessionStorage.removeItem('reg_confirmPassword');
+    sessionStorage.removeItem('reg_acceptedTerms');
+  };
 
   const validateForm = () => {
     const newErrors: FormErrors = {}
@@ -72,6 +93,10 @@ export function RegisterPage({ onSetRegistrationData, themeProps }: RegisterPage
       newErrors.confirmPassword = 'Las contraseñas no coinciden'
     }
 
+    if (!acceptedTerms) {
+      newErrors.terms = 'Debes aceptar los Términos y Condiciones'
+    }
+
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
@@ -80,12 +105,12 @@ export function RegisterPage({ onSetRegistrationData, themeProps }: RegisterPage
   const checkEmailExists = async (email: string) => {
     const { data, error } = await supabase
       .rpc('check_email_exists', { email_to_check: email.trim().toLowerCase() });
-    
+
     if (error) {
       console.error('Error checking email:', error);
       return true; // Asumir que existe para ser conservadores
     }
-    
+
     return !!data;
   };
 
@@ -99,7 +124,7 @@ export function RegisterPage({ onSetRegistrationData, themeProps }: RegisterPage
     try {
       // Verificar si el email ya está registrado
       const emailExists = await checkEmailExists(email)
-      
+
       if (emailExists) {
         toast.error('Este correo ya está registrado', {
           description: '¿Quieres iniciar sesión con esta cuenta?',
@@ -110,7 +135,7 @@ export function RegisterPage({ onSetRegistrationData, themeProps }: RegisterPage
           },
           cancel: {
             label: 'Cerrar',
-            onClick: () => {}
+            onClick: () => { }
           }
         })
         setIsLoading(false)
@@ -123,6 +148,8 @@ export function RegisterPage({ onSetRegistrationData, themeProps }: RegisterPage
         email: email.trim(),
         password
       })
+
+      clearSessionStorage();
 
       toast.success('¡Datos guardados!', {
         description: 'Ahora elige tu plan'
@@ -179,8 +206,8 @@ export function RegisterPage({ onSetRegistrationData, themeProps }: RegisterPage
   // Clase condicional para inputs
   const getInputClass = (hasError: boolean) => `
     h-12 transition-all duration-200 dark:bg-gray-700 dark:text-white
-    ${hasError 
-      ? 'border-red-500 focus:border-red-500 focus:ring-red-500 bg-red-50 dark:bg-red-900/20' 
+    ${hasError
+      ? 'border-red-500 focus:border-red-500 focus:ring-red-500 bg-red-50 dark:bg-red-900/20'
       : 'border-gray-200 dark:border-gray-600 focus:border-indigo-500 focus:ring-indigo-500'
     }
   `;
@@ -203,7 +230,7 @@ export function RegisterPage({ onSetRegistrationData, themeProps }: RegisterPage
       </Button>
 
       {/* Badge de paso */}
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         className="mb-6"
@@ -221,7 +248,7 @@ export function RegisterPage({ onSetRegistrationData, themeProps }: RegisterPage
       >
         <Card className="border-0 shadow-2xl bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm">
           <CardHeader className="space-y-1 text-center pb-8">
-            <motion.div 
+            <motion.div
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
               transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
@@ -334,6 +361,47 @@ export function RegisterPage({ onSetRegistrationData, themeProps }: RegisterPage
                 )}
               </div>
 
+              {/* Términos y condiciones */}
+              <div className="space-y-3 pt-2">
+                <div className="flex items-start space-x-3">
+                  <Checkbox
+                    id="terms"
+                    checked={acceptedTerms}
+                    onCheckedChange={(checked) => {
+                      setAcceptedTerms(checked as boolean);
+                      if (checked) {
+                        setErrors(prev => ({ ...prev, terms: undefined }));
+                      }
+                    }}
+                    className={`w-5 h-5 min-w-[1.25rem] border-2 bg-white dark:bg-gray-800 rounded flex items-center justify-center shrink-0 ${errors.terms ? "border-red-500" : "border-gray-300 dark:border-gray-500"} mt-0.5`}
+                  />
+                  <div className="grid gap-1.5 leading-none">
+                    <label
+                      htmlFor="terms"
+                      className="text-sm text-gray-700 dark:text-gray-300 leading-snug cursor-pointer select-none pt-0.5"
+                    >
+                      He leído y acepto los{" "}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          navigate('/terminos-y-condiciones');
+                        }}
+                        className="text-indigo-600 dark:text-indigo-400 font-bold hover:underline focus:outline-none focus:underline"
+                      >
+                        Términos y Condiciones
+                      </button>
+                    </label>
+                  </div>
+                </div>
+                {errors.terms && (
+                  <div className="flex items-center gap-2 text-red-600 dark:text-red-400 text-sm mt-1 animate-in fade-in slide-in-from-top-1 ml-7">
+                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                    <span>{errors.terms}</span>
+                  </div>
+                )}
+              </div>
+
               <Button
                 type="submit"
                 disabled={isLoading}
@@ -352,7 +420,7 @@ export function RegisterPage({ onSetRegistrationData, themeProps }: RegisterPage
 
             <p className="text-center text-sm text-gray-500 dark:text-gray-400 mt-6">
               ¿Ya tienes una cuenta?{' '}
-              <button 
+              <button
                 onClick={() => navigate('/login')}
                 className="text-indigo-600 dark:text-indigo-400 hover:underline font-medium"
               >

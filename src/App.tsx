@@ -7,6 +7,7 @@ import { PlansPage } from '@/sections/PlansPage';
 import { DashboardPage } from '@/sections/DashboardPage';
 import { FeedbackPage } from '@/sections/FeedbackPage';
 import { MaintenancePage } from '@/sections/MaintenancePage';
+import { TermsPage } from '@/sections/TermsPage';
 
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
@@ -194,6 +195,9 @@ export default function App() {
   return (
     <>
       <Routes>
+        {/* Páginas Legales */}
+        <Route path="/terminos-y-condiciones" element={<TermsPage themeProps={themeProps} />} />
+
         {/* 🌍 Pública - siempre accesible */}
         <Route path="/feedback/:businessId" element={<FeedbackRoute />} />
 
