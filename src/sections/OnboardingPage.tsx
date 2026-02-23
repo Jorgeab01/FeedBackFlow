@@ -10,6 +10,8 @@ import { toast } from 'sonner';
 import { useTheme } from '@/hooks/useTheme';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import type { User } from '@/types';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/hooks/useAuth';
 
 interface OnboardingPageProps {
     user: User;
@@ -23,6 +25,8 @@ export function OnboardingPage({ user, themeProps }: OnboardingPageProps) {
     const [businessName, setBusinessName] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const navigate = useNavigate();
+    const { updateUser } = useAuth();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -44,13 +48,16 @@ export function OnboardingPage({ user, themeProps }: OnboardingPageProps) {
             if (updateError) throw updateError;
 
             toast.success('¡Negocio creado exitosamente!', {
-                description: 'Redirigiendo a tu dashboard...',
+                description: 'Redirigiendo a los planes...',
             });
 
-            // Recargar la página para que useAuth hidrate los datos limpios
+            // Delay state update slightly so React Router handles the navigate to /plans
+            // before the App's PrivateRoute causes a fallback navigation to /dashboard.
+            navigate('/plans', { replace: true });
+
             setTimeout(() => {
-                window.location.href = '/dashboard';
-            }, 1500);
+                updateUser({ businessName: businessName.trim() });
+            }, 100);
 
         } catch (err) {
             console.error('Error updating business:', err);

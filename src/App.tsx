@@ -68,7 +68,7 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
     return <>{children}</>;
   }
 
-  // 1️⃣ Mostrar loader solo en carga inicial
+  // 1️⃣ Mostrar loader solo en carga inicial o durante redirect OAuth
   if (isLoading && !hasShownContent.current) {
     return <LoadingScreen />;
   }
@@ -129,11 +129,9 @@ function PlansRoute({
     return <LoadingScreen />;
   }
 
-  // 1️⃣ Si ya está autenticado, redirigir siempre al Dashboard 
-  // (los usuarios registrados gestionan su plan en Ajustes)
+  // 1️⃣ Si ya está autenticado, permitir acceso a los planes
   if (isAuthenticated) {
-    console.log('[PlansRoute] Authenticated user, redirecting to dashboard');
-    return <Navigate to="/dashboard" replace />;
+    return <>{children}</>;
   }
 
   // 2️⃣ Si NO está autenticado, solo permitir acceso si tiene datos de registro de la etapa anterior

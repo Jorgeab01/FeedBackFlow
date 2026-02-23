@@ -43,6 +43,13 @@ export function PlansPage({ onSelectPlan, isAuthenticated, user, themeProps }: P
       // 1. Si elige "free"
       if (plan === 'free') {
         if (isAuthenticated) {
+          // Si ya tiene el plan gratis (ej. Onboarding de Google), ir directo al dashboard
+          if (user?.plan === 'free') {
+            navigate('/dashboard', { replace: true });
+            setIsLoading(false);
+            return;
+          }
+
           // Si ya está autenticado y estaba en otro plan, redirigir al portal para cancelar
           const { data: { session } } = await supabase.auth.getSession();
           const { data, error } = await supabase.functions.invoke('create-portal', {
