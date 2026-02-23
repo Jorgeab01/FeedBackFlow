@@ -109,17 +109,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Llamar a getSession() aquí crea una Condición de Carrera PKCE (doble uso del mismo token)
         // provocando cuelgues masivos de 30s o borrados accidentales de sesión.
         // Dejamos que el listener onAuthStateChange("SIGNED_IN") tome el control orgánicamente.
-
-        // Failsafe: Si a los 5 segundos el listener de Supabase no ha respondido (ej. código caducado), abortamos.
-        setTimeout(async () => {
-          if (mounted && window.location.search.includes('code=')) {
-            console.warn('[auth] Fallback timeout triggered for OAuth callback');
-            window.history.replaceState(null, '', window.location.pathname);
-            const { data } = await supabase.auth.getSession();
-            if (!data.session) clearAuth();
-            if (mounted) setIsLoading(false);
-          }
-        }, 5000);
         return;
       }
 
