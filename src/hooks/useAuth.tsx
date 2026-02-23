@@ -102,6 +102,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (initDispatched.current) return;
       initDispatched.current = true;
 
+      const hasOAuthCode = window.location.search.includes('code=');
+
+      if (hasOAuthCode) {
+        // En flujos OAuth, Supabase (detectSessionInUrl) ya está procesando el código en 2º plano.
+        // Llamar a getSession() aquí crea una Condición de Carrera PKCE (doble uso del mismo token)
+        // provocando cuelgues masivos de 30s o borrados accidentales de sesión.
+        // Dejamos que el listener onAuthStateChange("SIGNED_IN") tome el control orgánicamente.
+
+        // Failsafe: Si a los 5 segundos el listener de Supabase no ha respondido (ej. código caducado), abortamos.
+        setTimeout(async () => {
+          if (mounted && window.location.search.includes('code=')) {
+            console.warn('[auth] Fallback timeout triggered for OAuth callback');
+            window.history.replaceState(null, '', window.location.pathname);
+            const { data } = await supabase.auth.getSession();
+            if (!data.session) clearAuth();
+            if (mounted) setIsLoading(false);
+          }
+        }, 5000);
+        return;
+      }
+
       try {
         // Ejecutar obtención nativa de sesión y confiar en el tiempo de respuesta subyacente de Supabase
         const sessionResult = await supabase.auth.getSession();
