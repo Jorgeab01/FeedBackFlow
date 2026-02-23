@@ -124,6 +124,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Llamar a getSession() aquí crea una Condición de Carrera PKCE (doble uso del mismo token)
         // provocando cuelgues masivos de 30s o borrados accidentales de sesión.
         // Dejamos que el listener onAuthStateChange("SIGNED_IN") tome el control orgánicamente.
+
+        // FIX: Safety timeout por si el listener nunca se dispara (red lenta, error Supabase, etc.)
+        const safetyTimeout = setTimeout(() => {
+          if (mounted) {
+            console.warn('[auth] Safety timeout: onAuthStateChange no se disparó tras OAuth. Reseteando.');
+            clearAuth();
+            setIsLoading(false);
+          }
+        }, 10000);
+        (window as any).__authSafetyTimeout = safetyTimeout;
         return;
       }
 
@@ -163,11 +173,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!mounted) return;
 
       if (event === 'SIGNED_IN' && session?.user) {
+        // Cancelar el safety timeout si el listener se dispara correctamente
+        if ((window as any).__authSafetyTimeout) {
+          clearTimeout((window as any).__authSafetyTimeout);
+          (window as any).__authSafetyTimeout = null;
+        }
         try {
-          if (!user || user.id !== session.user.id) {
-            await hydrateUser(session.user);
-          }
+          // FIX: Siempre hidratar en SIGNED_IN. La condición anterior (!user || user.id !== ...)
+          // podía saltar el bloque entero y nunca ejecutar setIsLoading(false), dejando la app colgada.
+          await hydrateUser(session.user);
         } finally {
+          // FIX: setIsLoading(false) siempre se ejecuta, incluso si hydrateUser salió por su guarda interna
           if (mounted) setIsLoading(false);
         }
       } else if (event === 'SIGNED_OUT') {
