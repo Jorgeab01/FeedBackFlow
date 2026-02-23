@@ -44,7 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const keysToRemove = [];
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
-        if (key && (key.includes('feedbackflow-auth') || (key.startsWith('sb-') && key.endsWith('-auth-token')))) {
+        if (key && (key.includes('feedbackflow-auth') || key.startsWith('sb-'))) {
           keysToRemove.push(key);
         }
       }
