@@ -214,7 +214,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, [hydrateUser, clearAuth, user]);
+  }, [hydrateUser, clearAuth]);
 
   const loginWithGoogle = useCallback(async () => {
     try {
