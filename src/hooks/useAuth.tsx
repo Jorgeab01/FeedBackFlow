@@ -23,7 +23,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   const hydratingRef = useRef<string | null>(null);
-  const initDispatched = useRef(false);
 
   const updateUser = useCallback((updates: Partial<User>) => {
     setUser(prev => prev ? { ...prev, ...updates } : null);
@@ -135,8 +134,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let mounted = true;
 
     async function initialize() {
-      if (initDispatched.current) return;
-      initDispatched.current = true;
 
       const hasOAuthCode = window.location.search.includes('code=');
 
