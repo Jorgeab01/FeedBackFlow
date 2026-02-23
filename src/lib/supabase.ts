@@ -19,15 +19,6 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     detectSessionInUrl: true,
     flowType: 'pkce',
     storage: window.localStorage
-  },
-  global: {
-    headers: {
-      'X-Client-Info': 'feedbackflow-web'
-    }
-  },
-  // IMPORTANTE: Desactivar realtime que puede causar aborts
-  realtime: {
-    params: { eventsPerSecond: 1 }
   }
 });
 

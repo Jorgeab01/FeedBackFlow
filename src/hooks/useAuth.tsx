@@ -59,12 +59,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     hydratingRef.current = authUser.id;
 
     try {
+      console.log(`[auth][verbose] Starting DB fetch for user: ${authUser.id}`);
       // Used withTimeout because Supabase DB queries hang infinitely if the client is internally locked by a bad OAuth ?code=
       const { data, error } = await withTimeout(
         supabase.from('businesses').select('id, name, plan').eq('owner_id', authUser.id).maybeSingle(),
-        8000,
+        15000,
         'DB query timeout during hydration'
       );
+      console.log(`[auth][verbose] DB fetch resolved:`, { hasData: !!data, hasError: !!error });
 
       if (error) {
         console.error('[auth] Error fetching business:', error);
