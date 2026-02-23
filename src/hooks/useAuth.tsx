@@ -54,12 +54,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     try {
       console.log(`[auth][verbose] Starting DB fetch for user: ${authUser.id}`);
-      // Native Supabase call without aggressive timeouts to prevent premature UI reroutes on slow networks
-      const { data, error } = await supabase
+
+      // Auto-Healing Circuit Breaker: Si el token localStorage está corrupto, Supabase se
+      // quedará en deadlock infinito. Si la BD tarda > 20s, destruimos la sesión corrupta.
+      const fetchPromise = supabase
         .from('businesses')
         .select('id, name, plan')
         .eq('owner_id', authUser.id)
         .maybeSingle();
+
+      const timeoutPromise = new Promise<any>((_, reject) =>
+        setTimeout(() => reject(new Error('SUPABASE_DEADLOCK_DETECTED')), 20000)
+      );
+
+      // Usamos Promise.race localmente solo para evitar white-screens infinitos por corrupción de caché
+      const { data, error } = await Promise.race([fetchPromise, timeoutPromise]);
       console.log(`[auth][verbose] DB fetch resolved:`, { hasData: !!data, hasError: !!error });
 
       if (error) {
@@ -87,8 +96,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (window.location.search.includes('code=')) {
         window.history.replaceState(null, '', window.location.pathname);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('[auth] Exception in hydrateUser:', err);
+      // Auto-Heal: Autodestrucción completa de la caché si detectamos un deadlock nativo
+      if (err?.message === 'SUPABASE_DEADLOCK_DETECTED') {
+        localStorage.clear();
+        sessionStorage.clear();
+        window.location.replace('/login');
+      }
       clearAuth();
     } finally {
       hydratingRef.current = null;
