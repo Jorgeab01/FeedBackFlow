@@ -18,7 +18,17 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     detectSessionInUrl: true,
     flowType: 'pkce',
-    storage: window.localStorage
+    storage: window.localStorage,
+    // Workaround CRITICO para un bug conocido en React 19 + Vite donde el lock de sesión local
+    // hace deadlock silencioso y cuelga todas las peticiones a la base de datos y Auth.
+    lock: async <R>(_name: string, _acquireTimeout: number, fn: () => Promise<R>): Promise<R> => {
+      try {
+        return await fn();
+      } catch (e) {
+        console.warn('Supabase lock error bypassed:', e);
+        throw e;
+      }
+    }
   }
 });
 
