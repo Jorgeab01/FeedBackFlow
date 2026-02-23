@@ -130,7 +130,7 @@ export function LoginPage({ onLogin, onGoogleLogin, themeProps }: LoginPageProps
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="space-y-1.5">
+                <div className="space-y-3">
                   <Label htmlFor="email" className="text-gray-700 dark:text-gray-200 font-medium">
                     Correo electrónico
                   </Label>
@@ -144,7 +144,7 @@ export function LoginPage({ onLogin, onGoogleLogin, themeProps }: LoginPageProps
                     className="h-10 border-gray-200 dark:border-gray-600 focus:border-indigo-500 focus:ring-indigo-500 transition-all dark:bg-gray-700 dark:text-white"
                   />
                 </div>
-                <div className="space-y-1.5">
+                <div className="space-y-3">
                   <Label htmlFor="password" className="text-gray-700 dark:text-gray-200 font-medium">
                     Contraseña
                   </Label>
@@ -219,9 +219,6 @@ export function LoginPage({ onLogin, onGoogleLogin, themeProps }: LoginPageProps
 
               {/* Register Button */}
               <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                <p className="text-center text-sm text-gray-500 dark:text-gray-400 mb-2">
-                  ¿No tienes una cuenta?
-                </p>
                 <Button
                   variant="outline"
                   onClick={() => navigate('/register')}
