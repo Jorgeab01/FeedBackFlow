@@ -23,6 +23,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   const hydratingRef = useRef<string | null>(null);
+  const lastHydratedUserId = useRef<string | null>(null);
 
   const updateUser = useCallback((updates: Partial<User>) => {
     setUser(prev => prev ? { ...prev, ...updates } : null);
@@ -31,6 +32,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const clearAuth = useCallback(() => {
     setUser(null);
     setIsAuthenticated(false);
+    lastHydratedUserId.current = null;
 
     // Purge tokens and potentially corrupted PKCE code verifiers that cause internal Supabase locks
     try {
@@ -102,6 +104,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         name: 'Configurando Negocio...',
         plan: 'none'
       };
+
+      lastHydratedUserId.current = authUser.id;
 
       setUser({
         id: authUser.id,
@@ -197,9 +201,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           (window as any).__authSafetyTimeout = null;
         }
         try {
-          // FIX: Siempre hidratar en SIGNED_IN. La condición anterior (!user || user.id !== ...)
-          // podía saltar el bloque entero y nunca ejecutar setIsLoading(false), dejando la app colgada.
-          await hydrateUser(session.user, session.access_token);
+          // FIX: Solo hidratamos si no hemos hidratado ya a este usuario, evitando bucles de navegación
+          if (lastHydratedUserId.current !== session.user.id) {
+            await hydrateUser(session.user, session.access_token);
+          }
         } finally {
           // FIX: setIsLoading(false) siempre se ejecuta, incluso si hydrateUser salió por su guarda interna
           if (mounted) setIsLoading(false);
