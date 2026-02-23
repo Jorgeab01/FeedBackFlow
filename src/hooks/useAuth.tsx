@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef, createContext, useContext, type ReactNode } from 'react';
-import { supabase } from '@/lib/supabase';
+import { supabase, supabaseUrl, supabaseAnonKey } from '@/lib/supabase';
 import type { User, PlanType } from '@/types';
 
 interface AuthContextType {
@@ -48,28 +48,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const hydrateUser = useCallback(async (authUser: { id: string; email?: string }): Promise<void> => {
+  const hydrateUser = useCallback(async (authUser: { id: string; email?: string }, explicitToken?: string): Promise<void> => {
     if (hydratingRef.current === authUser.id) return;
     hydratingRef.current = authUser.id;
 
     try {
       console.log(`[auth][verbose] Starting DB fetch for user: ${authUser.id}`);
 
-      // Auto-Healing Circuit Breaker: Si el token localStorage está corrupto, Supabase se
-      // quedará en deadlock infinito. Si la BD tarda > 20s, destruimos la sesión corrupta.
-      const fetchPromise = supabase
-        .from('businesses')
-        .select('id, name, plan')
-        .eq('owner_id', authUser.id)
-        .maybeSingle();
+      let businessData = null;
+      let error = null;
 
-      const timeoutPromise = new Promise<any>((_, reject) =>
-        setTimeout(() => reject(new Error('SUPABASE_DEADLOCK_DETECTED')), 20000)
-      );
+      if (explicitToken) {
+        // Native Fetch Bypass: Evita el 100% de los internal lock deadlocks de supabase.from()
+        // enviando la petición REST pura al backend sin pasar por la cola maldita de GoTrue.
+        console.log(`[auth][verbose] Fetching natively via REST API...`);
+        const response = await fetch(`${supabaseUrl}/rest/v1/businesses?owner_id=eq.${authUser.id}&select=id,name,plan`, {
+          headers: {
+            'apikey': supabaseAnonKey,
+            'Authorization': `Bearer ${explicitToken}`,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          cache: 'no-store'
+        });
 
-      // Usamos Promise.race localmente solo para evitar white-screens infinitos por corrupción de caché
-      const { data, error } = await Promise.race([fetchPromise, timeoutPromise]);
-      console.log(`[auth][verbose] DB fetch resolved:`, { hasData: !!data, hasError: !!error });
+        if (!response.ok) {
+          throw new Error(`HTTP Error: ${response.status}`);
+        }
+
+        const rawData = await response.json();
+        businessData = rawData && rawData.length > 0 ? rawData[0] : null;
+      } else {
+        // Fallback
+        const { data: sbData, error: sbError } = await supabase
+          .from('businesses')
+          .select('id, name, plan')
+          .eq('owner_id', authUser.id)
+          .maybeSingle();
+        businessData = sbData;
+        error = sbError;
+      }
+
+      console.log(`[auth][verbose] DB fetch resolved:`, { hasData: !!businessData, hasError: !!error });
 
       if (error) {
         console.error('[auth] Error fetching business:', error);
@@ -77,7 +97,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      const businessData = data || {
+      // Si no existe, usamos un mock por defecto en lugar de colgar
+      businessData = businessData || {
         id: '',
         name: 'Configurando Negocio...',
         plan: 'none'
@@ -150,7 +171,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
           clearAuth();
         } else if (session?.user) {
-          await hydrateUser(session.user);
+          await hydrateUser(session.user, session.access_token);
         } else {
           clearAuth();
         }
@@ -181,7 +202,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         try {
           // FIX: Siempre hidratar en SIGNED_IN. La condición anterior (!user || user.id !== ...)
           // podía saltar el bloque entero y nunca ejecutar setIsLoading(false), dejando la app colgada.
-          await hydrateUser(session.user);
+          await hydrateUser(session.user, session.access_token);
         } finally {
           // FIX: setIsLoading(false) siempre se ejecuta, incluso si hydrateUser salió por su guarda interna
           if (mounted) setIsLoading(false);
@@ -223,7 +244,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) return false;
       if (data.user) {
-        await hydrateUser(data.user);
+        await hydrateUser(data.user, data.session?.access_token);
         return true;
       }
       return false;
@@ -246,7 +267,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const requiresEmailVerification = data.user && !data.session;
       if (!requiresEmailVerification) {
-        await hydrateUser(data.user);
+        await hydrateUser(data.user, data.session?.access_token);
       }
       return { success: true, requiresEmailVerification };
     } catch (err) {
