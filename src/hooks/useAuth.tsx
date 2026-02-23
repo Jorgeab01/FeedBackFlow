@@ -149,6 +149,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!mounted) return;
 
       if (event === 'SIGNED_IN' && session?.user) {
+        // En aplicaciones React (SPA), la mejor práctica y más limpia al volver de un login externo (Google)
+        // con un ?code= en la URL, es forzar una recarga completa de la página tras guardar la sesión.
+        // Esto limpia los candados internos (navigator.locks), la memoria de React y las conexiones lentas atoradas.
+        if (window.location.search.includes('code=')) {
+          window.location.replace('/dashboard');
+          return;
+        }
+
         if (!user || user.id !== session.user.id) {
           await hydrateUser(session.user);
         }
