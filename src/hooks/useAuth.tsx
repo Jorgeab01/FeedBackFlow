@@ -15,13 +15,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Helper to safely execute Supabase promises without hanging infinitely
-const withTimeout = async function (promise: any, ms: number, fallbackErrorMsg: string): Promise<any> {
-  return Promise.race([
-    Promise.resolve(promise),
-    new Promise<any>((_, reject) => setTimeout(() => reject(new Error(fallbackErrorMsg)), ms))
-  ]);
-};
+
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -60,12 +54,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     try {
       console.log(`[auth][verbose] Starting DB fetch for user: ${authUser.id}`);
-      // Used withTimeout because Supabase DB queries hang infinitely if the client is internally locked by a bad OAuth ?code=
-      const { data, error } = await withTimeout(
-        supabase.from('businesses').select('id, name, plan').eq('owner_id', authUser.id).maybeSingle(),
-        15000,
-        'DB query timeout during hydration'
-      );
+      // Native Supabase call without aggressive timeouts to prevent premature UI reroutes on slow networks
+      const { data, error } = await supabase
+        .from('businesses')
+        .select('id, name, plan')
+        .eq('owner_id', authUser.id)
+        .maybeSingle();
       console.log(`[auth][verbose] DB fetch resolved:`, { hasData: !!data, hasError: !!error });
 
       if (error) {
@@ -108,16 +102,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (initDispatched.current) return;
       initDispatched.current = true;
 
-      const isOAuthFlow = window.location.search.includes('code=');
-
       try {
-        // withTimeout is required because getSession() inherently hangs in @supabase/supabase-js
-        // if there is a mismatch/corruption in the PKCE localStorage verifier vs the ?code= parameter.
-        const sessionResult = await withTimeout(
-          supabase.auth.getSession(),
-          isOAuthFlow ? 30000 : 10000,
-          'getSession timeout'
-        );
+        // Ejecutar obtención nativa de sesión y confiar en el tiempo de respuesta subyacente de Supabase
+        const sessionResult = await supabase.auth.getSession();
 
         const { data: { session }, error } = sessionResult;
 
@@ -151,10 +138,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!mounted) return;
 
       if (event === 'SIGNED_IN' && session?.user) {
-        if (!user || user.id !== session.user.id) {
-          await hydrateUser(session.user);
+        try {
+          if (!user || user.id !== session.user.id) {
+            await hydrateUser(session.user);
+          }
+        } finally {
+          if (mounted) setIsLoading(false);
         }
-        if (mounted) setIsLoading(false);
       } else if (event === 'SIGNED_OUT') {
         clearAuth();
         if (mounted) setIsLoading(false);
@@ -229,7 +219,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearAuth();
     setIsLoading(true);
     try {
-      await withTimeout(supabase.auth.signOut({ scope: 'local' }), 3000, 'Logout timeout');
+      await supabase.auth.signOut({ scope: 'local' });
     } catch (err) {
       console.warn('Logout warning:', err);
     } finally {
