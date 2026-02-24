@@ -9,4 +9,4 @@ Disallow: /email-verified
 Disallow: /reset-password
 Disallow: /feedback/
 
-Sitemap: https://feedbackflow.app/sitemap.xml
+Sitemap: https://feedback-flow.com/sitemap.xml

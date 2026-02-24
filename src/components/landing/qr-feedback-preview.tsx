@@ -51,7 +51,7 @@ export function QrFeedbackPreview() {
                                     {/* Real QR using qrcode.react */}
                                     <div className="px-2 py-2">
                                         <QRCodeSVG
-                                            value="https://feedbackflow.app/feedback/demo"
+                                            value="https://feedback-flow.com/feedback/demo"
                                             size={200}
                                             level="H"
                                             fgColor="#6366f1"
