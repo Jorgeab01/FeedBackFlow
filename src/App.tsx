@@ -180,8 +180,9 @@ export default function App() {
       toast.success('¡Plan seleccionado correctamente!');
       updateUser({ plan, requiresPlanSelection: false });
 
-      // Limpiar el flag de la base de datos (background)
-      supabase.auth.updateUser({
+      // Limpiar el flag de la base de datos — awaited para que el token se refresque
+      // antes de navegar, evitando que TOKEN_REFRESHED restaure requiresPlanSelection: true
+      await supabase.auth.updateUser({
         data: { requires_plan_selection: null }
       });
 

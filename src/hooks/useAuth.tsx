@@ -217,6 +217,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // FIX: setIsLoading(false) siempre se ejecuta, incluso si hydrateUser salió por su guarda interna
           if (mounted) setIsLoading(false);
         }
+      } else if (event === 'TOKEN_REFRESHED' && session?.user) {
+        // En TOKEN_REFRESHED no re-hidratamos: solo actualizamos requiresPlanSelection
+        // si el nuevo token ya tiene el flag limpiado (evita el bucle con metadata stale)
+        if (lastHydratedUserId.current === session.user.id) {
+          const rawMetaData = session.user.user_metadata || {};
+          const requiresPlanSelection = rawMetaData.requires_plan_selection === true;
+          // Solo actualizamos si el flag cambió a false (limpieza exitosa)
+          if (!requiresPlanSelection) {
+            setUser(prev => prev ? { ...prev, requiresPlanSelection: false } : null);
+          }
+          if (mounted) setIsLoading(false);
+        }
       } else if (event === 'SIGNED_OUT') {
         clearAuth();
         if (mounted) setIsLoading(false);

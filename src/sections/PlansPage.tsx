@@ -50,6 +50,13 @@ export function PlansPage({ onSelectPlan, isAuthenticated, user, themeProps }: P
             return;
           }
 
+          // Si no tiene plan aún (registro nuevo por email), asignar plan gratis directamente
+          if (!user?.plan) {
+            await onSelectPlan(plan);
+            setIsLoading(false);
+            return;
+          }
+
           // Si ya está autenticado y estaba en otro plan, redirigir al portal para cancelar
           const { data: { session } } = await supabase.auth.getSession();
           const { data, error } = await supabase.functions.invoke('create-portal', {
