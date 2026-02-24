@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { useState, useEffect, useRef } from 'react';
+import { supabase } from '@/lib/supabase';
 
 import { LoginPage } from '@/sections/LoginPage';
 import { RegisterPage } from '@/sections/RegisterPage';
@@ -10,6 +11,7 @@ import { MaintenancePage } from '@/sections/MaintenancePage';
 import { TermsPage } from '@/sections/TermsPage';
 import { OnboardingPage } from '@/sections/OnboardingPage';
 import { VerifyEmailPage } from '@/sections/VerifyEmailPage';
+import { EmailVerifiedPage } from '@/sections/EmailVerifiedPage';
 
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
@@ -90,6 +92,11 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/onboarding" replace />;
   }
 
+  // 3.6️⃣ Forzar selección de plan si no tiene uno (ej: recién registrado por email)
+  if (user?.requiresPlanSelection) {
+    return <Navigate to="/plans" replace />;
+  }
+
   // 4️⃣ Solo renderizar cuando todo está listo
   if (!showContent && !hasShownContent.current) {
     return <LoadingScreen />;
@@ -115,14 +122,8 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-// 🎫 Ruta de planes (accesible con o sin auth)
-function PlansRoute({
-  children,
-  hasRegistrationData
-}: {
-  children: React.ReactNode;
-  hasRegistrationData: boolean;
-}) {
+// 🎫 Ruta de planes (accesible solo con auth ahora que el registro es previo)
+function PlansRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
 
   if (isLoading) {
@@ -134,18 +135,13 @@ function PlansRoute({
     return <>{children}</>;
   }
 
-  // 2️⃣ Si NO está autenticado, solo permitir acceso si tiene datos de registro de la etapa anterior
-  if (hasRegistrationData) {
-    return <>{children}</>;
-  }
-
-  // ❌ Sin autenticación ni datos de registro -> volver a register
-  console.log('[PlansRoute] No auth and no registration data, redirecting to register');
-  return <Navigate to="/register" replace />;
+  // ❌ Sin autenticación -> volver a login
+  console.log('[PlansRoute] No auth, redirecting to login');
+  return <Navigate to="/login" replace />;
 }
 
 export default function App() {
-  const { user, isAuthenticated, login, loginWithGoogle, isLoading, logout, register } = useAuth();
+  const { user, isAuthenticated, login, loginWithGoogle, isLoading, logout, updateUser } = useAuth();
   const themeProps = useTheme();
   const navigate = useNavigate();
 
@@ -160,48 +156,45 @@ export default function App() {
     );
   }
 
-  // Flujo de registro
-  const [registrationData, setRegistrationData] = useState<{
-    businessName: string;
-    email: string;
-    password: string;
-  } | null>(null);
-
   const handleSelectPlan = async (plan: PlanType): Promise<boolean> => {
-    if (!registrationData) {
-      console.error('[handleSelectPlan] No registration data');
+    if (!isAuthenticated || !user) {
+      console.error('[handleSelectPlan] No user authenticated');
+      navigate('/login', { replace: true });
       return false;
     }
 
-    console.log('[handleSelectPlan] Registering with plan:', plan);
+    console.log('[handleSelectPlan] Updating plan to:', plan);
 
-    const result = await register(
-      registrationData.businessName,
-      registrationData.email,
-      registrationData.password,
-      plan
-    );
+    try {
+      const { error } = await supabase
+        .from('businesses')
+        .update({ plan })
+        .eq('owner_id', user.id);
 
-    if (!result.success) {
-      toast.error('No se pudo crear la cuenta');
-      navigate('/register', { replace: true });
-      return false;
-    }
+      if (error) {
+        console.error('Error updating plan:', error);
+        toast.error('Error al guardar el plan');
+        return false;
+      }
 
-    if (result.requiresEmailVerification) {
-      setRegistrationData(null);
-      navigate('/verify-email', { replace: true });
-      return false;
-    }
+      toast.success('¡Plan seleccionado correctamente!');
+      updateUser({ plan, requiresPlanSelection: false });
 
-    if (plan === 'free') {
-      setRegistrationData(null);
+      // Limpiar el flag de la base de datos (background)
+      supabase.auth.updateUser({
+        data: { requires_plan_selection: null }
+      });
+
       setTimeout(() => {
         navigate('/dashboard', { replace: true });
-      }, 200);
-    }
+      }, 500);
 
-    return true;
+      return true;
+    } catch (err) {
+      console.error('Exception updating plan:', err);
+      toast.error('Error de conexión');
+      return false;
+    }
   };
 
   console.log('[App] State:', { isLoading, isAuthenticated, hasUser: !!user });
@@ -231,11 +224,15 @@ export default function App() {
         />
 
         <Route
+          path="/email-verified"
+          element={<EmailVerifiedPage themeProps={themeProps} />}
+        />
+
+        <Route
           path="/register"
           element={
             <PublicRoute>
               <RegisterPage
-                onSetRegistrationData={setRegistrationData}
                 onGoogleLogin={loginWithGoogle}
                 themeProps={themeProps}
               />
@@ -246,7 +243,7 @@ export default function App() {
         <Route
           path="/plans"
           element={
-            <PlansRoute hasRegistrationData={!!registrationData}>
+            <PlansRoute>
               <PlansPage
                 onSelectPlan={handleSelectPlan}
                 isAuthenticated={isAuthenticated}

@@ -1,6 +1,8 @@
 import { useEffect, useState, useCallback, useRef, createContext, useContext, type ReactNode } from 'react';
 import { supabase, supabaseUrl, supabaseAnonKey } from '@/lib/supabase';
-import type { User, PlanType } from '@/types';
+import type { User as SupabaseUser } from '@supabase/supabase-js';
+import type { User } from '@/types';
+import { toast } from 'sonner';
 
 interface AuthContextType {
   user: User | null;
@@ -8,7 +10,8 @@ interface AuthContextType {
   isLoading: boolean;
   login: (email: string, password: string) => Promise<boolean>;
   loginWithGoogle: () => Promise<boolean>;
-  register: (businessName: string, email: string, password: string, plan: PlanType) => Promise<{ success: boolean; requiresEmailVerification?: boolean }>;
+  register: (businessName: string, email: string, password: string) => Promise<{ success: boolean; requiresEmailVerification?: boolean; error?: string }>;
+  resendVerification: (email: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   updateUser: (updates: Partial<User>) => void;
 }
@@ -49,7 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const hydrateUser = useCallback(async (authUser: { id: string; email?: string }, explicitToken?: string): Promise<void> => {
+  const hydrateUser = useCallback(async (authUser: SupabaseUser, explicitToken?: string): Promise<void> => {
     if (hydratingRef.current === authUser.id) return;
     hydratingRef.current = authUser.id;
 
@@ -65,7 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.log(`[auth][verbose] Fetching natively via REST API...`);
         const response = await fetch(`${supabaseUrl}/rest/v1/businesses?owner_id=eq.${authUser.id}&select=id,name,plan`, {
           headers: {
-            'apikey': supabaseAnonKey,
+            'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY || supabaseAnonKey,
             'Authorization': `Bearer ${explicitToken}`,
             'Content-Type': 'application/json',
             'Accept': 'application/json'
@@ -107,13 +110,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       lastHydratedUserId.current = authUser.id;
 
-      setUser({
+      const rawMetaData = authUser.user_metadata || {};
+      const requiresPlanSelection = rawMetaData.requires_plan_selection === true;
+
+      const mergedUser: User = {
         id: authUser.id,
         email: authUser.email || '',
-        businessId: businessData.id,
-        businessName: businessData.name,
-        plan: businessData.plan
-      });
+        businessId: businessData?.id || '',
+        businessName: businessData?.name || 'Configurando Negocio...',
+        plan: businessData?.plan || 'free',
+        requiresPlanSelection,
+      };
+      setUser(mergedUser);
       setIsAuthenticated(true);
 
       // Clean URL natively
@@ -244,6 +252,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(true);
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+      if (error && error.message.includes('Email not confirmed')) {
+        toast.error('Correo sin verificar', {
+          description: 'El enlace temporal pudo haber caducado. Revisa tu correo o solicita uno nuevo.',
+          duration: 10000,
+          action: {
+            label: 'Reenviar correo',
+            onClick: async () => {
+              const { error: resendError } = await supabase.auth.resend({
+                type: 'signup',
+                email: email,
+                options: {
+                  emailRedirectTo: window.location.origin + '/dashboard'
+                }
+              });
+              if (resendError) {
+                toast.error('Error al reenviar', { description: resendError.message });
+              } else {
+                toast.success('¡Enlace reenviado!', { description: 'Revisa tu bandeja de entrada en unos instantes.' });
+              }
+            }
+          }
+        });
+        return false;
+      }
+
       if (error) return false;
       if (data.user) {
         await hydrateUser(data.user, data.session?.access_token);
@@ -258,26 +292,59 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [hydrateUser]);
 
-  const register = useCallback(async (businessName: string, email: string, password: string, plan: PlanType) => {
+  const register = useCallback(async (businessName: string, email: string, password: string) => {
     setIsLoading(true);
     try {
       const { data, error } = await supabase.auth.signUp({
         email, password,
-        options: { data: { businessName, plan } }
+        options: {
+          data: { businessName, plan: 'free', requires_plan_selection: true },
+          emailRedirectTo: `${window.location.origin}/email-verified`
+        }
       });
-      if (error || !data.user) return { success: false };
+
+      console.log('[auth] Registro result:', { data, error });
+
+      if (error) {
+        console.error('[auth] Error registering:', error);
+        return { success: false, error: error.message };
+      }
+      if (!data.user) {
+        return { success: false, error: 'No se creó el usuario nativo en Supabase' };
+      }
 
       const requiresEmailVerification = data.user && !data.session;
       if (!requiresEmailVerification) {
         await hydrateUser(data.user, data.session?.access_token);
       }
       return { success: true, requiresEmailVerification };
-    } catch (err) {
-      return { success: false };
+    } catch (err: any) {
+      console.error('[auth] Catch error registering:', err);
+      return { success: false, error: err.message };
     } finally {
       setIsLoading(false);
     }
   }, [hydrateUser]);
+
+  const resendVerification = useCallback(async (email: string) => {
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email,
+        options: {
+          emailRedirectTo: `${window.location.origin}/email-verified`
+        }
+      });
+      if (error) {
+        console.error('[auth] Error resending verification:', error);
+        return { success: false, error: error.message };
+      }
+      return { success: true };
+    } catch (err: any) {
+      console.error('[auth] Catch error resending verification:', err);
+      return { success: false, error: err.message };
+    }
+  }, []);
 
   const logout = useCallback(async () => {
     clearAuth();
@@ -293,8 +360,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [clearAuth]);
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated, isLoading, login, loginWithGoogle, register, logout, updateUser }}>
-      {children}
+    <AuthContext.Provider value={{
+      user, isAuthenticated, isLoading, login, loginWithGoogle,
+      register,
+      resendVerification,
+      logout,
+      updateUser
+    }}
+    >  {children}
     </AuthContext.Provider>
   );
 }

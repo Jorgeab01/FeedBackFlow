@@ -28,9 +28,9 @@ import { ThemeToggle } from '@/components/ThemeToggle'
 import { useTheme } from '@/hooks/useTheme'
 import { toast } from 'sonner'
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/hooks/useAuth';
 
 interface RegisterPageProps {
-  onSetRegistrationData: (data: { businessName: string; email: string; password: string }) => void;
   onGoogleLogin: () => void;
   themeProps: {
     theme: ReturnType<typeof useTheme>['theme'];
@@ -47,7 +47,7 @@ interface FormErrors {
 }
 
 
-export function RegisterPage({ onSetRegistrationData, onGoogleLogin, themeProps }: RegisterPageProps) {
+export function RegisterPage({ onGoogleLogin, themeProps }: RegisterPageProps) {
   const [businessName, setBusinessName] = useState(() => sessionStorage.getItem('reg_businessName') || '')
   const [email, setEmail] = useState(() => sessionStorage.getItem('reg_email') || '')
   const [password, setPassword] = useState(() => sessionStorage.getItem('reg_password') || '')
@@ -56,6 +56,7 @@ export function RegisterPage({ onSetRegistrationData, onGoogleLogin, themeProps 
   const [isLoading, setIsLoading] = useState(false)
   const [errors, setErrors] = useState<FormErrors>({})
   const navigate = useNavigate();
+  const { register } = useAuth();
 
   // Guardar estado en sessionStorage para no perderlo al navegar a Términos
   useEffect(() => {
@@ -143,20 +144,27 @@ export function RegisterPage({ onSetRegistrationData, onGoogleLogin, themeProps 
         return
       }
 
-      // Si no existe, continuar con el registro
-      onSetRegistrationData({
-        businessName: businessName.trim(),
-        email: email.trim(),
+      // Si no existe, registrar cuenta ahora mismo con plan 'none'
+      const result = await register(
+        businessName.trim(),
+        email.trim(),
         password
-      })
+      );
+
+      if (!result.success) {
+        toast.error(result.error || 'No se pudo crear la cuenta');
+        setIsLoading(false);
+        return;
+      }
 
       clearSessionStorage();
 
-      toast.success('¡Datos guardados!', {
-        description: 'Ahora elige tu plan'
-      })
-
-      navigate('/plans')
+      if (result.requiresEmailVerification) {
+        navigate('/verify-email', { replace: true, state: { email: email.trim() } });
+      } else {
+        // En caso de que el email verification esté desactivado
+        navigate('/plans', { replace: true });
+      }
 
     } catch (error) {
       console.error('Error verificando email:', error)

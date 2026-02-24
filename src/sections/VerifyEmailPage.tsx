@@ -1,13 +1,44 @@
 import { motion } from 'framer-motion';
-import { Mail, ArrowRight } from 'lucide-react';
+import { Mail, ArrowRight, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useTheme } from '@/hooks/useTheme';
 import { ThemeToggle } from '@/components/ThemeToggle';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useAuth } from '@/hooks/useAuth';
+import { toast } from 'sonner';
 
 export function VerifyEmailPage({ themeProps }: { themeProps: { theme: ReturnType<typeof useTheme>['theme']; setTheme: ReturnType<typeof useTheme>['setTheme'] } }) {
     const navigate = useNavigate();
+    const location = useLocation();
+    const { resendVerification } = useAuth();
+
+    const email = location.state?.email as string | undefined;
+    const [countdown, setCountdown] = useState(60);
+    const [isResending, setIsResending] = useState(false);
+
+    useEffect(() => {
+        if (countdown <= 0) return;
+        const timer = setInterval(() => {
+            setCountdown((prev) => prev - 1);
+        }, 1000);
+        return () => clearInterval(timer);
+    }, [countdown]);
+
+    const handleResend = async () => {
+        if (!email) return;
+        setIsResending(true);
+        const { success, error } = await resendVerification(email);
+        setIsResending(false);
+
+        if (success) {
+            toast.success('Correo de verificación reenviado. Revisa tu bandeja de entrada.');
+            setCountdown(60);
+        } else {
+            toast.error(error || 'Error al reenviar el correo. Inténtalo más tarde.');
+        }
+    };
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
@@ -45,6 +76,20 @@ export function VerifyEmailPage({ themeProps }: { themeProps: { theme: ReturnTyp
                                 <strong>💡 Consejo:</strong> Si no ves el correo en unos minutos, revisa tu carpeta de Spam o Correo no deseado.
                             </p>
                         </div>
+
+                        {email && (
+                            <Button
+                                onClick={handleResend}
+                                disabled={countdown > 0 || isResending}
+                                variant="outline"
+                                className="w-full h-12 text-indigo-600 border-indigo-200 dark:text-indigo-400 dark:border-indigo-800 hover:bg-indigo-50 dark:hover:bg-indigo-900/30"
+                            >
+                                <RefreshCw className={`w-4 h-4 mr-2 ${isResending ? 'animate-spin' : ''}`} />
+                                {countdown > 0
+                                    ? `Reenviar correo en ${countdown}s`
+                                    : 'Reenviar correo de verificación'}
+                            </Button>
+                        )}
 
                         <Button
                             onClick={() => navigate('/login')}

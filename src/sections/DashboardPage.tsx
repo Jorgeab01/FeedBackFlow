@@ -2661,17 +2661,17 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                       </div>
                     </div>
                     {(['free', 'basic', 'pro'] as PlanType[]).map((plan) => {
-                      const planNames = {
+                      const planNames: Record<PlanType, string> = {
                         free: 'Gratis',
                         basic: 'Básico',
                         pro: 'Pro'
                       };
-                      const planPrices = {
+                      const planPrices: Record<PlanType, string> = {
                         free: '0€',
                         basic: isYearly ? '59.90€' : '5.99€',
                         pro: isYearly ? '99.90€' : '9.99€'
                       };
-                      const planDescriptions = {
+                      const planDescriptions: Record<PlanType, string> = {
                         free: '30 comentarios/mes',
                         basic: '200 comentarios/mes + CSV',
                         pro: 'Ilimitado + Estadísticas'
