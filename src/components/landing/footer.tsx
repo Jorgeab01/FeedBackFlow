@@ -1,10 +1,19 @@
 import { FeedbackFlowLogo } from "@/components/landing/logo"
 
+
 const footerLinks = {
-  Producto: ["Funciones", "Precios", "Integraciones", "Actualizaciones"],
-  Empresa: ["Sobre Nosotros", "Blog", "Empleo", "Contacto"],
-  Recursos: ["Documentacion", "Guias", "Soporte", "API"],
-  Legal: ["Privacidad", "Terminos", "Cookies", "RGPD"],
+  Producto: [
+    { label: "Funciones", href: "/#features" },
+    { label: "Precios", href: "/#pricing" },
+  ],
+  Empresa: [
+    { label: "Blog", href: "/blog" },
+    { label: "Contacto", href: "mailto:soporte@feedbackflow.com" },
+  ],
+  Legal: [
+    { label: "Términos", href: "/terminos-y-condiciones" },
+    { label: "Privacidad", href: "#" },
+  ],
 }
 
 export function Footer() {
@@ -29,9 +38,9 @@ export function Footer() {
               <h3 className="text-sm font-semibold text-foreground">{category}</h3>
               <ul className="mt-4 flex flex-col gap-3">
                 {links.map((link) => (
-                  <li key={link}>
-                    <a href="#" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
-                      {link}
+                  <li key={link.label}>
+                    <a href={link.href} className="text-sm text-muted-foreground transition-colors hover:text-foreground">
+                      {link.label}
                     </a>
                   </li>
                 ))}

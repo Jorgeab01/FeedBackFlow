@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate, useNavigate, useParams } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { supabase } from '@/lib/supabase';
 
@@ -15,12 +15,39 @@ const VerifyEmailPage = lazy(() => import('@/sections/VerifyEmailPage').then(m =
 const EmailVerifiedPage = lazy(() => import('@/sections/EmailVerifiedPage').then(m => ({ default: m.EmailVerifiedPage })));
 const ResetPasswordPage = lazy(() => import('@/sections/ResetPasswordPage').then(m => ({ default: m.ResetPasswordPage })));
 const LandingPage = lazy(() => import('@/sections/LandingPage').then(m => ({ default: m.LandingPage })));
+const BlogPage = lazy(() => import('@/sections/BlogPage').then(m => ({ default: m.BlogPage })));
+const BlogPostPage = lazy(() => import('@/sections/BlogPostPage').then(m => ({ default: m.BlogPostPage })));
 
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
 import { Toaster } from '@/components/ui/sonner';
 import type { PlanType } from '@/types';
 import { toast } from 'sonner';
+
+// Scroll to top on route change, or to hash element if present
+function ScrollToTop() {
+  const { pathname, hash } = useLocation();
+  useEffect(() => {
+    if (hash) {
+      // Poll until the element exists (lazy-loaded pages need time to render)
+      let attempts = 0;
+      const maxAttempts = 30; // 30 × 50ms = 1.5s max wait
+      const poll = setInterval(() => {
+        const el = document.getElementById(hash.slice(1));
+        if (el) {
+          clearInterval(poll);
+          el.scrollIntoView({ behavior: 'smooth' });
+        } else if (++attempts >= maxAttempts) {
+          clearInterval(poll);
+        }
+      }, 50);
+      return () => clearInterval(poll);
+    } else {
+      window.scrollTo(0, 0);
+    }
+  }, [pathname, hash]);
+  return null;
+}
 
 // 🌍 Feedback público
 function FeedbackRoute() {
@@ -205,6 +232,7 @@ export default function App() {
 
   return (
     <>
+      <ScrollToTop />
       <Suspense fallback={<LoadingScreen />}>
         <Routes>
           {/* Páginas Legales */}
@@ -212,6 +240,10 @@ export default function App() {
 
           {/* 🌍 Pública - siempre accesible */}
           <Route path="/feedback/:businessId" element={<FeedbackRoute />} />
+
+          {/* 📝 Blog — público */}
+          <Route path="/blog" element={<BlogPage />} />
+          <Route path="/blog/:slug" element={<BlogPostPage />} />
 
           {/* 🔓 Rutas públicas */}
           <Route
