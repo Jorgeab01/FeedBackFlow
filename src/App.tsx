@@ -298,13 +298,15 @@ export default function App() {
           }
         />
 
-        {/* 🏠 Ruta raíz */}
+        {/* 🏠 Ruta raíz — renderiza landing inmediatamente, redirige si ya está autenticado */}
         <Route
           path="/"
           element={
-            <PublicRoute>
+            !isLoading && isAuthenticated ? (
+              <Navigate to="/dashboard" replace />
+            ) : (
               <LandingPage />
-            </PublicRoute>
+            )
           }
         />
 

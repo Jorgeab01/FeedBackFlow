@@ -133,13 +133,12 @@ const PLAN_LIMITS = {
   }
 };
 
-// Estilos de QR disponibles
-const qrStyles = [
-  { id: 'classic', name: 'Clásico', bgColor: '#ffffff', fgColor: '#000000', accentColor: '#6366f1' },
-  { id: 'modern', name: 'Moderno', bgColor: '#f8fafc', fgColor: '#1e293b', accentColor: '#8b5cf6' },
-  { id: 'colorful', name: 'Colorido', bgColor: '#fef3c7', fgColor: '#92400e', accentColor: '#f59e0b' },
-  { id: 'elegant', name: 'Elegante', bgColor: '#faf5ff', fgColor: '#581c87', accentColor: '#a855f7' },
-  { id: 'dark', name: 'Oscuro', bgColor: '#1e293b', fgColor: '#f8fafc', accentColor: '#6366f1' },
+// Colores predefinidos para el selector de QR
+const QR_PRESET_BG = [
+  '#ffffff', '#1e293b', '#0f172a', '#fef3c7', '#faf5ff', '#f0fdf4', '#fff1f2', '#f0f9ff',
+];
+const QR_PRESET_FG = [
+  '#000000', '#1e293b', '#6366f1', '#a855f7', '#f59e0b', '#10b981', '#ef4444', '#3b82f6',
 ];
 
 const qrPhrases = [
@@ -251,7 +250,10 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
   } = useMonthlyUsage(user.businessId, user.plan);
 
   const [showQRDialog, setShowQRDialog] = useState(false);
-  const [selectedStyle, setSelectedStyle] = useState(qrStyles[0]);
+  const [qrBgColor, setQrBgColor] = useState('#ffffff');
+  const [qrFgColor, setQrFgColor] = useState('#000000');
+  const [qrBgHex, setQrBgHex] = useState('#ffffff');
+  const [qrFgHex, setQrFgHex] = useState('#000000');
   const [selectedPhrase, setSelectedPhrase] = useState(qrPhrases[0]);
   const qrRef = useRef<HTMLDivElement>(null);
 
@@ -309,12 +311,15 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
   const canAccessAdvancedStats = limits.canAccessAdvancedStats;
   const canCustomizeQR = limits.canCustomizeQR;
 
-  // Resetear estilo si no está permitido
+  // Resetear colores si no está permitido customizar
   useEffect(() => {
-    if (!canCustomizeQR && selectedStyle.id !== 'classic') {
-      setSelectedStyle(qrStyles[0]);
+    if (!canCustomizeQR) {
+      setQrBgColor('#ffffff');
+      setQrFgColor('#000000');
+      setQrBgHex('#ffffff');
+      setQrFgHex('#000000');
     }
-  }, [canCustomizeQR, selectedStyle.id]);
+  }, [canCustomizeQR]);
 
   // Verificar si es plan Pro
   const isPro = user.plan === 'pro';
@@ -640,29 +645,85 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
   const handleDownloadQR = useCallback(() => {
     if (!qrRef.current) return;
 
-    const svg = qrRef.current.querySelector('svg');
-    if (!svg) return;
-
-    const svgData = new XMLSerializer().serializeToString(svg);
+    const container = qrRef.current;
+    const rect = container.getBoundingClientRect();
+    const scale = 3;
     const canvas = document.createElement('canvas');
+    canvas.width = rect.width * scale;
+    canvas.height = rect.height * scale;
     const ctx = canvas.getContext('2d');
-    const img = new Image();
+    if (!ctx) return;
 
+    // Draw background
+    ctx.scale(scale, scale);
+    ctx.fillStyle = qrBgColor;
+    ctx.roundRect(0, 0, rect.width, rect.height, 16);
+    ctx.fill();
+
+    // Draw corner accents
+    const cs = 28; // corner size
+    const cm = 16; // corner margin
+    const bw = 4;  // border width
+    ctx.strokeStyle = qrFgColor;
+    ctx.lineWidth = bw;
+    // top-left
+    ctx.beginPath(); ctx.moveTo(cm + cs, cm); ctx.lineTo(cm, cm); ctx.lineTo(cm, cm + cs); ctx.stroke();
+    // top-right
+    ctx.beginPath(); ctx.moveTo(rect.width - cm - cs, cm); ctx.lineTo(rect.width - cm, cm); ctx.lineTo(rect.width - cm, cm + cs); ctx.stroke();
+    // bottom-left
+    ctx.beginPath(); ctx.moveTo(cm, rect.height - cm - cs); ctx.lineTo(cm, rect.height - cm); ctx.lineTo(cm + cs, rect.height - cm); ctx.stroke();
+    // bottom-right
+    ctx.beginPath(); ctx.moveTo(rect.width - cm - cs, rect.height - cm); ctx.lineTo(rect.width - cm, rect.height - cm); ctx.lineTo(rect.width - cm, rect.height - cm - cs); ctx.stroke();
+
+    // Draw QR SVG
+    const svg = container.querySelector('svg');
+    if (!svg) return;
+    const svgData = new XMLSerializer().serializeToString(svg);
+    const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(svgBlob);
+    const img = new Image();
     img.onload = () => {
-      canvas.width = img.width * 2;
-      canvas.height = img.height * 2;
-      ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
+      const svgEl = container.querySelector('svg')!;
+      const svgRect = svgEl.getBoundingClientRect();
+      const offsetX = svgRect.left - rect.left;
+      const offsetY = svgRect.top - rect.top;
+      ctx.drawImage(img, offsetX, offsetY, svgRect.width, svgRect.height);
+      URL.revokeObjectURL(url);
+
+      // Draw center icon
+      const iconSize = 40;
+      const iconX = rect.width / 2 - iconSize / 2;
+      const iconY = offsetY + svgRect.height / 2 - iconSize / 2;
+      ctx.fillStyle = qrBgColor;
+      ctx.beginPath(); ctx.roundRect(iconX - 4, iconY - 4, iconSize + 8, iconSize + 8, 8); ctx.fill();
+      ctx.fillStyle = qrFgColor;
+      ctx.beginPath(); ctx.roundRect(iconX, iconY, iconSize, iconSize, 6); ctx.fill();
+
+      // Draw text
+      const textY = offsetY + svgRect.height + 16;
+      ctx.fillStyle = qrFgColor;
+      ctx.font = 'bold 14px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      if (showBusinessName && business?.name) {
+        ctx.fillText(business.name, rect.width / 2, textY);
+      }
+      const phrase = isCustomPhrase ? (customPhrase || '') : selectedPhrase;
+      if (phrase) {
+        ctx.globalAlpha = 0.8;
+        ctx.font = '11px system-ui, sans-serif';
+        ctx.fillText(phrase, rect.width / 2, textY + (showBusinessName && business?.name ? 18 : 0));
+        ctx.globalAlpha = 1;
+      }
+
       const pngFile = canvas.toDataURL('image/png');
       const downloadLink = document.createElement('a');
       downloadLink.download = `qr-${business?.name || 'negocio'}.png`;
       downloadLink.href = pngFile;
       downloadLink.click();
-      toast.success('QR descargado', {
-        description: 'El código QR ha sido descargado correctamente.',
-      });
+      toast.success('QR descargado', { description: 'El código QR ha sido descargado correctamente.' });
     };
-    img.src = 'data:image/svg+xml;base64,' + btoa(svgData);
-  }, [business?.name]);
+    img.src = url;
+  }, [business?.name, qrBgColor, qrFgColor, showBusinessName, isCustomPhrase, customPhrase, selectedPhrase]);
 
   const handleExportExcel = useCallback(() => {
     if (!canExport) {
@@ -1628,7 +1689,7 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                               <div>
                                 <p className="text-sm text-gray-500 dark:text-gray-400">Período analizado</p>
                                 <p className="text-lg font-bold text-gray-900 dark:text-white">
-                                  {advancedChartData.periodDays} días
+                                  {advancedChartData.periodDays} {advancedChartData.periodDays === 1 ? 'día' : 'días'}
                                 </p>
                               </div>
                             </div>
@@ -1642,34 +1703,43 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                                 <BarChart3 className="w-4 h-4" />
                                 Volumen de comentarios por día
                               </h4>
-                              <div className="h-48 flex items-end justify-between gap-1">
+                              <div className="h-48 flex items-end justify-center gap-1">
                                 {advancedChartData.dailyData.slice(-14).map((day, i) => (
-                                  <div key={i} className="flex-1 flex flex-col items-center gap-1 group relative">
+                                  <div key={i} className="flex-1 min-w-0 max-w-[40px] flex flex-col items-center gap-1 group relative">
                                     <div className="relative w-full">
                                       <div
                                         className="w-full bg-green-500/20 dark:bg-green-400/20 rounded-t transition-all duration-300 group-hover:bg-green-500/40"
                                         style={{ height: `${(day.count / (advancedChartData.maxDailyCount || 1)) * 120}px` }}
                                       >
-                                        <div
-                                          className="absolute bottom-0 w-full bg-green-500 dark:bg-green-400 rounded-t transition-all duration-300"
-                                          style={{ height: `${day.count > 0 ? (day.happy / day.count) * 100 : 0}%`, opacity: 0.9 }}
-                                        />
-                                        <div
-                                          className="absolute bottom-0 w-full bg-yellow-500 dark:bg-yellow-400 rounded-t transition-all duration-300"
-                                          style={{
-                                            height: `${day.count > 0 ? (day.neutral / day.count) * 100 : 0}%`,
-                                            bottom: `${day.count > 0 ? (day.happy / day.count) * 100 : 0}%`,
-                                            opacity: 0.9
-                                          }}
-                                        />
-                                        <div
-                                          className="absolute bottom-0 w-full bg-red-500 dark:bg-red-400 rounded-t transition-all duration-300"
-                                          style={{
-                                            height: `${day.count > 0 ? (day.sad / day.count) * 100 : 0}%`,
-                                            bottom: `${day.count > 0 ? ((day.happy + day.neutral) / day.count) * 100 : 0}%`,
-                                            opacity: 0.9
-                                          }}
-                                        />
+                                        {(() => {
+                                          const hasNeutral = day.neutral > 0;
+                                          const hasSad = day.sad > 0;
+                                          const topSegment = hasSad ? 'sad' : hasNeutral ? 'neutral' : 'happy';
+                                          return (
+                                            <>
+                                              <div
+                                                className={`absolute bottom-0 w-full bg-green-500 dark:bg-green-400 ${topSegment === 'happy' ? 'rounded-t' : ''} transition-all duration-300`}
+                                                style={{ height: `${day.count > 0 ? (day.happy / day.count) * 100 : 0}%`, opacity: 0.9 }}
+                                              />
+                                              <div
+                                                className={`absolute bottom-0 w-full bg-yellow-500 dark:bg-yellow-400 ${topSegment === 'neutral' ? 'rounded-t' : ''} transition-all duration-300`}
+                                                style={{
+                                                  height: `${day.count > 0 ? (day.neutral / day.count) * 100 : 0}%`,
+                                                  bottom: `${day.count > 0 ? (day.happy / day.count) * 100 : 0}%`,
+                                                  opacity: 0.9
+                                                }}
+                                              />
+                                              <div
+                                                className={`absolute bottom-0 w-full bg-red-500 dark:bg-red-400 ${topSegment === 'sad' ? 'rounded-t' : ''} transition-all duration-300`}
+                                                style={{
+                                                  height: `${day.count > 0 ? (day.sad / day.count) * 100 : 0}%`,
+                                                  bottom: `${day.count > 0 ? ((day.happy + day.neutral) / day.count) * 100 : 0}%`,
+                                                  opacity: 0.9
+                                                }}
+                                              />
+                                            </>
+                                          );
+                                        })()}
                                       </div>
                                       <div className="absolute -top-20 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white text-xs rounded-lg px-3 py-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-20 shadow-xl">
                                         <div className="font-semibold mb-1">{day.dateFormatted}</div>
@@ -1709,7 +1779,14 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                                 <LineChart className="w-4 h-4" />
                                 Evolución de la satisfacción media
                               </h4>
-                              <div className="h-48 relative">
+                              <div className="h-48 relative pl-10">
+                                <div className="absolute left-0 top-0 bottom-0 w-10 flex flex-col justify-between text-[10px] text-gray-400 pr-2 text-right">
+                                  <span>100%</span>
+                                  <span>75%</span>
+                                  <span>50%</span>
+                                  <span>25%</span>
+                                  <span>0%</span>
+                                </div>
                                 <svg className="w-full h-full" viewBox="0 0 300 120" preserveAspectRatio="none">
                                   {[0, 25, 50, 75, 100].map((y, i) => (
                                     <line
@@ -1727,13 +1804,13 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                                   {advancedChartData.dailyData.length > 0 && (
                                     <path
                                       d={`
-                                        M 0 ${120 - (advancedChartData.dailyData[0]?.satisfactionPercentage || 0) * 1.2}
+                                        M ${advancedChartData.dailyData.length === 1 ? 150 : 0} ${120 - (advancedChartData.dailyData[0]?.satisfactionPercentage || 0) * 1.2}
                                         ${advancedChartData.dailyData.map((day, i) => {
-                                        const x = (i / (advancedChartData.dailyData.length - 1 || 1)) * 300;
+                                        const x = advancedChartData.dailyData.length === 1 ? 150 : (i / (advancedChartData.dailyData.length - 1)) * 300;
                                         const y = 120 - (day.satisfactionPercentage * 1.2);
                                         return `L ${x} ${y}`;
                                       }).join(' ')}
-                                        L 300 120 L 0 120 Z
+                                        L ${advancedChartData.dailyData.length === 1 ? 150 : 300} 120 L ${advancedChartData.dailyData.length === 1 ? 150 : 0} 120 Z
                                       `}
                                       className="fill-green-500/10 dark:fill-green-400/10"
                                     />
@@ -1742,9 +1819,9 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                                   {advancedChartData.dailyData.length > 0 && (
                                     <path
                                       d={`
-                                        M 0 ${120 - (advancedChartData.dailyData[0]?.satisfactionPercentage || 0) * 1.2}
+                                        M ${advancedChartData.dailyData.length === 1 ? 150 : 0} ${120 - (advancedChartData.dailyData[0]?.satisfactionPercentage || 0) * 1.2}
                                         ${advancedChartData.dailyData.map((day, i) => {
-                                        const x = (i / (advancedChartData.dailyData.length - 1 || 1)) * 300;
+                                        const x = advancedChartData.dailyData.length === 1 ? 150 : (i / (advancedChartData.dailyData.length - 1)) * 300;
                                         const y = 120 - (day.satisfactionPercentage * 1.2);
                                         return `L ${x} ${y}`;
                                       }).join(' ')}
@@ -1757,7 +1834,7 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                                   )}
 
                                   {advancedChartData.dailyData.map((day, i) => {
-                                    const x = (i / (advancedChartData.dailyData.length - 1 || 1)) * 300;
+                                    const x = advancedChartData.dailyData.length === 1 ? 150 : (i / (advancedChartData.dailyData.length - 1)) * 300;
                                     const y = 120 - (day.satisfactionPercentage * 1.2);
 
                                     let pointColor;
@@ -1781,13 +1858,6 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                                   })}
                                 </svg>
 
-                                <div className="absolute left-0 top-0 bottom-0 flex flex-col justify-between text-[10px] text-gray-400 -translate-x-full pr-2">
-                                  <span>100%</span>
-                                  <span>75%</span>
-                                  <span>50%</span>
-                                  <span>25%</span>
-                                  <span>0%</span>
-                                </div>
                               </div>
                               <div className="flex justify-between mt-2 text-xs text-gray-500 px-2">
                                 <span>{advancedChartData.dailyData[0]?.dateFormatted}</span>
@@ -2158,12 +2228,12 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
               <div
                 ref={qrRef}
                 className="relative p-8 rounded-2xl shadow-2xl"
-                style={{ backgroundColor: selectedStyle.bgColor }}
+                style={{ backgroundColor: qrBgColor }}
               >
-                <div className="absolute top-4 left-4 w-8 h-8 border-l-4 border-t-4 rounded-tl-lg" style={{ borderColor: selectedStyle.accentColor }} />
-                <div className="absolute top-4 right-4 w-8 h-8 border-r-4 border-t-4 rounded-tr-lg" style={{ borderColor: selectedStyle.accentColor }} />
-                <div className="absolute bottom-4 left-4 w-8 h-8 border-l-4 border-b-4 rounded-bl-lg" style={{ borderColor: selectedStyle.accentColor }} />
-                <div className="absolute bottom-4 right-4 w-8 h-8 border-r-4 border-b-4 rounded-br-lg" style={{ borderColor: selectedStyle.accentColor }} />
+                <div className="absolute top-4 left-4 w-8 h-8 border-l-4 border-t-4 rounded-tl-lg" style={{ borderColor: qrFgColor }} />
+                <div className="absolute top-4 right-4 w-8 h-8 border-r-4 border-t-4 rounded-tr-lg" style={{ borderColor: qrFgColor }} />
+                <div className="absolute bottom-4 left-4 w-8 h-8 border-l-4 border-b-4 rounded-bl-lg" style={{ borderColor: qrFgColor }} />
+                <div className="absolute bottom-4 right-4 w-8 h-8 border-r-4 border-b-4 rounded-br-lg" style={{ borderColor: qrFgColor }} />
 
                 <div className="relative inline-block">
                   <QRCodeSVG
@@ -2171,19 +2241,19 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                     size={220}
                     level="H"
                     includeMargin={false}
-                    bgColor={selectedStyle.bgColor}
-                    fgColor={selectedStyle.fgColor}
+                    bgColor={qrBgColor}
+                    fgColor={qrFgColor}
                   />
                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                     <div
                       className="w-12 h-12 rounded-xl flex items-center justify-center z-10 pointer-events-auto"
-                      style={{ backgroundColor: selectedStyle.bgColor }}
+                      style={{ backgroundColor: qrBgColor }}
                     >
                       <div
                         className="w-10 h-10 rounded-lg flex items-center justify-center"
-                        style={{ backgroundColor: selectedStyle.accentColor }}
+                        style={{ backgroundColor: qrFgColor }}
                       >
-                        <MessageSquare className="w-5 h-5 text-white" />
+                        <MessageSquare className="w-5 h-5" style={{ color: qrBgColor }} />
                       </div>
                     </div>
                   </div>
@@ -2192,11 +2262,11 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                 {(showBusinessName || (!isCustomPhrase || customPhrase)) && (
                   <div className="mt-4 text-center space-y-1 w-[220px] mx-auto">
                     {showBusinessName && (
-                      <p className="font-bold text-lg leading-tight break-words px-2" style={{ color: selectedStyle.fgColor }}>
+                      <p className="font-bold text-lg leading-tight break-words px-2" style={{ color: qrFgColor }}>
                         {business?.name}
                       </p>
                     )}
-                    <p className="text-sm break-words px-2" style={{ color: selectedStyle.fgColor, opacity: 0.8 }}>
+                    <p className="text-sm break-words px-2" style={{ color: qrFgColor, opacity: 0.8 }}>
                       {isCustomPhrase ? (customPhrase || 'Escribe tu mensaje...') : selectedPhrase}
                     </p>
                   </div>
@@ -2223,11 +2293,12 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                 </button>
               </div>
 
-              <div>
-                <div className="flex items-center justify-between mb-2">
+              {/* Color Pickers */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
                   <label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
                     <Palette className="w-4 h-4" />
-                    Estilo del QR
+                    Colores del QR
                   </label>
                   {!canCustomizeQR && (
                     <Badge variant="secondary" className="text-xs">
@@ -2236,45 +2307,78 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                     </Badge>
                   )}
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  {qrStyles.map((style, index) => {
-                    const isAvailable = canCustomizeQR || index === 0;
-                    const isSelected = selectedStyle.id === style.id;
 
-                    return (
-                      <button
-                        key={style.id}
-                        onClick={() => isAvailable && setSelectedStyle(style)}
-                        disabled={!isAvailable}
-                        className={`
-                          px-3 py-2 rounded-lg text-sm font-medium transition-all relative
-                          ${isSelected && isAvailable
-                            ? 'ring-2 ring-indigo-500 bg-indigo-50 dark:bg-indigo-900/30'
-                            : isAvailable
-                              ? 'bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600'
-                              : 'bg-gray-50 dark:bg-gray-800 opacity-60 cursor-not-allowed'
-                          }
-                        `}
-                      >
-                        <div className="flex items-center gap-2">
-                          <div
-                            className="w-4 h-4 rounded border-2"
-                            style={{
-                              backgroundColor: style.bgColor,
-                              borderColor: style.fgColor,
-                              opacity: isAvailable ? 1 : 0.4
-                            }}
+                {canCustomizeQR ? (
+                  <div className="space-y-4">
+                    {/* Background color */}
+                    <div className="space-y-2">
+                      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Fondo</p>
+                      <div className="flex flex-wrap gap-2">
+                        {QR_PRESET_BG.map(color => (
+                          <button
+                            key={color}
+                            onClick={() => { setQrBgColor(color); setQrBgHex(color); }}
+                            className={`w-8 h-8 rounded-full border-2 transition-all hover:scale-110 ${qrBgColor === color ? 'border-indigo-500 scale-110 shadow-md' : 'border-gray-300 dark:border-gray-600'
+                              }`}
+                            style={{ backgroundColor: color }}
+                            title={color}
                           />
-                          <span className={!isAvailable ? 'text-gray-400' : ''}>
-                            {style.name}
-                          </span>
-                          {!isAvailable && <Lock className="w-3 h-3 text-gray-400" />}
-                          {isSelected && isAvailable && <Check className="w-3 h-3 text-indigo-600" />}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
+                        ))}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-500">#</span>
+                        <Input
+                          value={qrBgHex.replace('#', '')}
+                          onChange={e => {
+                            const raw = '#' + e.target.value.replace(/[^0-9a-fA-F]/g, '').slice(0, 6);
+                            setQrBgHex(raw);
+                            if (raw.length === 7) setQrBgColor(raw);
+                          }}
+                          placeholder="ffffff"
+                          className="h-8 font-mono text-sm"
+                          maxLength={6}
+                        />
+                        <div className="w-8 h-8 rounded border border-gray-300 dark:border-gray-600 flex-shrink-0" style={{ backgroundColor: qrBgColor }} />
+                      </div>
+                    </div>
+
+                    {/* Foreground color */}
+                    <div className="space-y-2">
+                      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Componentes (QR y texto)</p>
+                      <div className="flex flex-wrap gap-2">
+                        {QR_PRESET_FG.map(color => (
+                          <button
+                            key={color}
+                            onClick={() => { setQrFgColor(color); setQrFgHex(color); }}
+                            className={`w-8 h-8 rounded-full border-2 transition-all hover:scale-110 ${qrFgColor === color ? 'border-indigo-500 scale-110 shadow-md' : 'border-gray-300 dark:border-gray-600'
+                              }`}
+                            style={{ backgroundColor: color }}
+                            title={color}
+                          />
+                        ))}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-500">#</span>
+                        <Input
+                          value={qrFgHex.replace('#', '')}
+                          onChange={e => {
+                            const raw = '#' + e.target.value.replace(/[^0-9a-fA-F]/g, '').slice(0, 6);
+                            setQrFgHex(raw);
+                            if (raw.length === 7) setQrFgColor(raw);
+                          }}
+                          placeholder="000000"
+                          className="h-8 font-mono text-sm"
+                          maxLength={6}
+                        />
+                        <div className="w-8 h-8 rounded border border-gray-300 dark:border-gray-600 flex-shrink-0" style={{ backgroundColor: qrFgColor }} />
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg text-center">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">QR en blanco y negro (plan gratuito)</p>
+                  </div>
+                )}
               </div>
 
               {!canCustomizeQR && (
@@ -3000,7 +3104,7 @@ const formatDate = (dateString: string): string => {
 
     if (diffInMinutes < 1) return 'Hace un momento';
     if (diffInMinutes < 60) return `Hace ${diffInMinutes} min`;
-    if (diffInHours < 24) return `Hace ${diffInHours} horas`;
+    if (diffInHours < 24) return `Hace ${diffInHours} ${diffInHours === 1 ? 'hora' : 'horas'}`;
 
     const yesterday = new Date(now);
     yesterday.setDate(yesterday.getDate() - 1);

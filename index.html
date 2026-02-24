@@ -1,12 +1,43 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>FeedbackFlow - Comentarios de Clientes</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FeedbackFlow - Comentarios de Clientes</title>
+</head>
+
+<body style="margin:0;background:#111827">
+  <div id="root">
+    <!-- Placeholder visible mientras JS carga — React lo reemplaza al montar -->
+    <div id="app-loader"
+      style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#111827,#1f2937)">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:16px">
+        <div
+          style="width:64px;height:64px;border:4px solid #4f46e5;border-top-color:transparent;border-radius:50%;animation:spin 1s linear infinite">
+        </div>
+        <p style="color:#d1d5db;font-family:system-ui,sans-serif;font-size:18px;font-weight:500">Cargando...</p>
+      </div>
+    </div>
+    <style>
+      @keyframes spin {
+        to {
+          transform: rotate(360deg)
+        }
+      }
+
+      @media(prefers-color-scheme:light) {
+        #app-loader {
+          background: linear-gradient(135deg, #eef2ff, #f5f3ff) !important
+        }
+
+        #app-loader p {
+          color: #4b5563 !important
+        }
+      }
+    </style>
+  </div>
+  <script type="module" src="/src/main.tsx"></script>
+</body>
+
 </html>
