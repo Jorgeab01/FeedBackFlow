@@ -44,7 +44,7 @@ export function EmailVerifiedPage({ themeProps }: { themeProps: { theme: ReturnT
                     <CardContent className="space-y-6">
                         <Button
                             onClick={() => navigate('/dashboard')}
-                            className="w-full h-14 bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white border-0 shadow-lg shadow-emerald-500/30 text-lg font-medium transition-all group rounded-xl"
+                            className="w-full h-14 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white border-0 shadow-lg shadow-indigo-500/30 text-lg font-medium transition-all group rounded-xl"
                         >
                             Continuar a mi cuenta
                             <ArrowRight className="ml-2 w-6 h-6 group-hover:translate-x-1 transition-transform" />

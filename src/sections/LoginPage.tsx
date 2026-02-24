@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { useTheme } from '@/hooks/useTheme';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/hooks/useAuth';
 
 interface LoginPageProps {
   onLogin: (email: string, password: string) => Promise<boolean>;
@@ -23,7 +24,9 @@ export function LoginPage({ onLogin, onGoogleLogin, themeProps }: LoginPageProps
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
   const navigate = useNavigate();
+  const { resetPassword } = useAuth();
 
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -43,6 +46,30 @@ export function LoginPage({ onLogin, onGoogleLogin, themeProps }: LoginPageProps
       });
       setIsLoading(false);
     }
+  };
+
+  const handleResetPassword = async () => {
+    if (!email) {
+      toast.error('Grave el correo electrónico', {
+        description: 'Por favor, ingresa tu correo electrónico para enviarte el enlace de recuperación.'
+      });
+      return;
+    }
+
+    setIsResettingPassword(true);
+    const { success, error } = await resetPassword(email);
+
+    if (success) {
+      toast.success('Enlace de recuperación enviado', {
+        description: 'Revisa tu bandeja de entrada.'
+      });
+    } else {
+      toast.error('Error al solicitar recuperación', {
+        description: error || 'Hubo un problema al intentar enviar el correo.'
+      });
+    }
+
+    setIsResettingPassword(false);
   };
 
   const features = [
@@ -145,9 +172,19 @@ export function LoginPage({ onLogin, onGoogleLogin, themeProps }: LoginPageProps
                   />
                 </div>
                 <div className="space-y-3">
-                  <Label htmlFor="password" className="text-gray-700 dark:text-gray-200 font-medium">
-                    Contraseña
-                  </Label>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="password" className="text-gray-700 dark:text-gray-200 font-medium">
+                      Contraseña
+                    </Label>
+                    <button
+                      type="button"
+                      onClick={handleResetPassword}
+                      disabled={isResettingPassword}
+                      className="text-sm font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300 transition-colors disabled:opacity-50"
+                    >
+                      {isResettingPassword ? 'Enviando...' : '¿Olvidaste tu contraseña?'}
+                    </button>
+                  </div>
                   <Input
                     id="password"
                     type="password"

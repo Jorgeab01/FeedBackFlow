@@ -12,6 +12,7 @@ import { TermsPage } from '@/sections/TermsPage';
 import { OnboardingPage } from '@/sections/OnboardingPage';
 import { VerifyEmailPage } from '@/sections/VerifyEmailPage';
 import { EmailVerifiedPage } from '@/sections/EmailVerifiedPage';
+import { ResetPasswordPage } from '@/sections/ResetPasswordPage';
 
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
@@ -227,6 +228,13 @@ export default function App() {
         <Route
           path="/email-verified"
           element={<EmailVerifiedPage themeProps={themeProps} />}
+        />
+
+        <Route
+          path="/reset-password"
+          element={
+            <ResetPasswordPage themeProps={themeProps} />
+          }
         />
 
         <Route

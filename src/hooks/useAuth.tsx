@@ -12,6 +12,7 @@ interface AuthContextType {
   loginWithGoogle: () => Promise<boolean>;
   register: (businessName: string, email: string, password: string) => Promise<{ success: boolean; requiresEmailVerification?: boolean; error?: string }>;
   resendVerification: (email: string) => Promise<{ success: boolean; error?: string }>;
+  resetPassword: (email: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   updateUser: (updates: Partial<User>) => void;
 }
@@ -358,6 +359,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const resetPassword = useCallback(async (email: string) => {
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      if (error) {
+        console.error('[auth] Error requesting password reset:', error);
+        return { success: false, error: error.message };
+      }
+      return { success: true };
+    } catch (err: any) {
+      console.error('[auth] Catch error requesting password reset:', err);
+      return { success: false, error: err.message };
+    }
+  }, []);
+
   const logout = useCallback(async () => {
     clearAuth();
     setIsLoading(true);
@@ -376,6 +393,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user, isAuthenticated, isLoading, login, loginWithGoogle,
       register,
       resendVerification,
+      resetPassword,
       logout,
       updateUser
     }}

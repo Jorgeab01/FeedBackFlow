@@ -43,15 +43,21 @@ export function PlansPage({ onSelectPlan, isAuthenticated, user, themeProps }: P
       // 1. Si elige "free"
       if (plan === 'free') {
         if (isAuthenticated) {
-          // Si ya tiene el plan gratis (ej. Onboarding de Google), ir directo al dashboard
+          // Si ya tiene el plan gratis (ej. Onboarding de Google) o acaba de registrarse por email
           if (user?.plan === 'free') {
-            navigate('/dashboard', { replace: true });
+            if (user?.requiresPlanSelection) {
+              // Si requiere selección de plan (ej: recién registrado por email), usar el flujo normal
+              await onSelectPlan(plan);
+            } else {
+              // Si ya lo tiene y no requiere selección, navegar directo
+              navigate('/dashboard', { replace: true });
+            }
             setIsLoading(false);
             return;
           }
 
-          // Si no tiene plan aún (registro nuevo por email), asignar plan gratis directamente
-          if (!user?.plan) {
+          // Si no tiene plan aún (seguridad extra) o es 'none' (mock temporal de useAuth), asignar plan gratis directamente
+          if (!user?.plan || (user.plan as string) === 'none') {
             await onSelectPlan(plan);
             setIsLoading(false);
             return;
@@ -145,14 +151,16 @@ export function PlansPage({ onSelectPlan, isAuthenticated, user, themeProps }: P
       </div>
 
       {/* Back Button */}
-      <Button
-        variant="ghost"
-        onClick={() => isAuthenticated ? navigate('/dashboard') : navigate('/register')}
-        className="fixed top-4 left-4 gap-2 text-gray-600 dark:text-gray-300 z-50"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        Volver
-      </Button>
+      {!user?.requiresPlanSelection && (
+        <Button
+          variant="ghost"
+          onClick={() => isAuthenticated ? navigate('/dashboard') : navigate('/register')}
+          className="fixed top-4 left-4 gap-2 text-gray-600 dark:text-gray-300 z-50"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Volver
+        </Button>
+      )}
 
       <div className="max-w-6xl mx-auto pt-16">
         {/* Header */}

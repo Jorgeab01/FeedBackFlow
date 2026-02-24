@@ -485,13 +485,17 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
         return
       }
 
-      toast.success('Contraseña actualizada correctamente')
+      toast.success('Contraseña actualizada correctamente', {
+        description: 'Por favor, inicia sesión con tu nueva contraseña.'
+      })
 
-      // Limpiar todo
+      // Limpiar todo y cerrar sesión
       setNewPassword('')
       setConfirmNewPassword('')
       setShowPasswordForm(false)
       setPasswordErrors({})
+
+      onLogout()
 
     } catch (err: any) {
       console.error('Error cambiando password:', err)
@@ -500,7 +504,7 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
       clearTimeout(timeoutId); // Limpiar timeout
       setIsChangingPassword(false); // SIEMPRE desactivar
     }
-  }, [newPassword, confirmNewPassword])
+  }, [newPassword, confirmNewPassword, onLogout])
 
 
   const [isChangingEmail, setIsChangingEmail] = useState(false);
