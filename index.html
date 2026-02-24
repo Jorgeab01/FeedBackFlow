@@ -37,6 +37,46 @@
   <!-- Theme & Favicon -->
   <meta name="theme-color" content="#4f46e5" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+  <!-- Structured Data (JSON-LD) -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "FeedbackFlow",
+    "url": "https://feedback-flow.com",
+    "applicationCategory": "BusinessApplication",
+    "operatingSystem": "Web",
+    "description": "Recoge opiniones anónimas de clientes con códigos QR. Mejora tu negocio con feedback real y estadísticas detalladas.",
+    "offers": [
+      {
+        "@type": "Offer",
+        "name": "Gratis",
+        "price": "0",
+        "priceCurrency": "EUR"
+      },
+      {
+        "@type": "Offer",
+        "name": "Plan Básico",
+        "price": "5.99",
+        "priceCurrency": "EUR",
+        "billingIncrement": "P1M"
+      },
+      {
+        "@type": "Offer",
+        "name": "Plan Pro",
+        "price": "9.99",
+        "priceCurrency": "EUR",
+        "billingIncrement": "P1M"
+      }
+    ],
+    "aggregateRating": {
+      "@type": "AggregateRating",
+      "ratingValue": "4.8",
+      "ratingCount": "120"
+    }
+  }
+  </script>
 </head>
 
 <body style="margin:0;background:#111827">

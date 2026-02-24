@@ -12,6 +12,19 @@ export function BlogPage() {
     const [dropdownOpen, setDropdownOpen] = useState(false)
     const dropdownRef = useRef<HTMLDivElement>(null)
 
+    // Dynamic SEO for blog listing page
+    useEffect(() => {
+        const originalTitle = document.title
+        document.title = "Blog - Consejos para mejorar tu negocio | FeedbackFlow"
+        const metaDesc = document.querySelector('meta[name="description"]')
+        const oldDesc = metaDesc?.getAttribute('content') || ''
+        metaDesc?.setAttribute('content', 'Estrategias, tutoriales y buenas prácticas para gestionar el feedback de tus clientes y hacer crecer tu negocio.')
+        return () => {
+            document.title = originalTitle
+            metaDesc?.setAttribute('content', oldDesc)
+        }
+    }, [])
+
     // Extract unique categories
     const categories = useMemo(
         () => [...new Set(blogArticles.map(a => a.category))],

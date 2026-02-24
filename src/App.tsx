@@ -17,6 +17,7 @@ const ResetPasswordPage = lazy(() => import('@/sections/ResetPasswordPage').then
 const LandingPage = lazy(() => import('@/sections/LandingPage').then(m => ({ default: m.LandingPage })));
 const BlogPage = lazy(() => import('@/sections/BlogPage').then(m => ({ default: m.BlogPage })));
 const BlogPostPage = lazy(() => import('@/sections/BlogPostPage').then(m => ({ default: m.BlogPostPage })));
+const NotFoundPage = lazy(() => import('@/sections/NotFoundPage').then(m => ({ default: m.NotFoundPage })));
 
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
@@ -344,14 +345,16 @@ export default function App() {
             }
           />
 
-          {/* ⚠️ Fallback - cualquier otra ruta */}
+          {/* ⚠️ Fallback - 404 o redirigir */}
           <Route
             path="*"
             element={
               isLoading ? (
                 <LoadingScreen />
+              ) : isAuthenticated ? (
+                <Navigate to="/dashboard" replace />
               ) : (
-                <Navigate to={isAuthenticated ? "/dashboard" : "/login"} replace />
+                <NotFoundPage />
               )
             }
           />

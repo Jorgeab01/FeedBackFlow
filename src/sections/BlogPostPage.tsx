@@ -1,4 +1,5 @@
 import { useParams, Navigate, Link } from "react-router-dom"
+import { useEffect } from "react"
 import { ArrowLeft, Clock, Tag, ArrowRight } from "lucide-react"
 import { motion } from "framer-motion"
 import { blogArticles } from "@/data/blog-articles"
@@ -9,6 +10,45 @@ import { Button } from "@/components/ui/button"
 export function BlogPostPage() {
     const { slug } = useParams<{ slug: string }>()
     const article = blogArticles.find(a => a.slug === slug)
+
+    // Dynamic SEO: title, meta description, JSON-LD
+    useEffect(() => {
+        if (!article) return
+
+        const originalTitle = document.title
+        document.title = `${article.title} | FeedbackFlow Blog`
+
+        // Meta description
+        let metaDesc = document.querySelector('meta[name="description"]')
+        const oldDesc = metaDesc?.getAttribute('content') || ''
+        if (metaDesc) metaDesc.setAttribute('content', article.description)
+
+        // JSON-LD Article
+        const jsonLd = document.createElement('script')
+        jsonLd.type = 'application/ld+json'
+        jsonLd.textContent = JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "Article",
+            "headline": article.title,
+            "description": article.description,
+            "datePublished": article.date,
+            "author": { "@type": "Organization", "name": "FeedbackFlow" },
+            "publisher": {
+                "@type": "Organization",
+                "name": "FeedbackFlow",
+                "url": "https://feedback-flow.com"
+            },
+            "url": `https://feedback-flow.com/blog/${article.slug}`,
+            "mainEntityOfPage": `https://feedback-flow.com/blog/${article.slug}`
+        })
+        document.head.appendChild(jsonLd)
+
+        return () => {
+            document.title = originalTitle
+            if (metaDesc) metaDesc.setAttribute('content', oldDesc)
+            jsonLd.remove()
+        }
+    }, [article])
 
     if (!article) {
         return <Navigate to="/blog" replace />
@@ -157,20 +197,55 @@ export function BlogPostPage() {
 
 /** Simple markdown → HTML renderer (no external dep needed) */
 function renderMarkdown(md: string): string {
-    return md
-        .replace(/^### (.*$)/gim, '<h3>$1</h3>')
-        .replace(/^## (.*$)/gim, '<h2>$1</h2>')
-        .replace(/^# (.*$)/gim, '<h1>$1</h1>')
-        .replace(/\*\*(.*?)\*\*/gim, '<strong>$1</strong>')
-        .replace(/\*(.*?)\*/gim, '<em>$1</em>')
-        .replace(/\[([^\]]+)\]\(([^)]+)\)/gim, '<a href="$2">$1</a>')
-        .replace(/^- (.*$)/gim, '<li>$1</li>')
-        .replace(/(<li>.*<\/li>\n?)+/gim, (match) => `<ul>${match}</ul>`)
-        .replace(/^\d+\. (.*$)/gim, '<li>$1</li>')
-        .replace(/^---$/gim, '<hr />')
-        .replace(/\n\n/g, '</p><p>')
-        .replace(/^(?!<[hluop])/gim, '')
-        .replace(/<p><\/p>/g, '')
-        .replace(/<p><(h[1-3]|ul|ol|hr|li)/g, '<$1')
-        .replace(/<\/(h[1-3]|ul|ol|hr|li)><\/p>/g, '</$1>')
+    // 1️⃣ Normalizar indentación del template string
+    const normalized = md
+        .replace(/^\n/, '')
+        .split('\n')
+        .map(line => line.replace(/^\s+/, '')) // solo quitar espacios iniciales
+        .join('\n');
+
+    // 2️⃣ Separar por bloques reales
+    const blocks = normalized.split(/\n{2,}/);
+
+    return blocks.map(block => {
+        const trimmed = block.trim();
+        if (!trimmed) return '';
+
+        // --- Horizontal rule ---
+        if (trimmed === '---') return '<hr />';
+
+        // --- Headings ---
+        if (trimmed.startsWith('### ')) return `<h3>${inline(trimmed.slice(4))}</h3>`;
+        if (trimmed.startsWith('## ')) return `<h2>${inline(trimmed.slice(3))}</h2>`;
+        if (trimmed.startsWith('# ')) return `<h1>${inline(trimmed.slice(2))}</h1>`;
+
+        const lines = trimmed.split('\n');
+
+        // --- Unordered list ---
+        if (lines.every(l => l.trim().startsWith('- '))) {
+            const items = lines
+                .map(l => `<li>${inline(l.trim().slice(2))}</li>`)
+                .join('');
+            return `<ul>${items}</ul>`;
+        }
+
+        // --- Ordered list ---
+        if (lines.every(l => /^\d+\.\s/.test(l.trim()))) {
+            const items = lines
+                .map(l => `<li>${inline(l.trim().replace(/^\d+\.\s/, ''))}</li>`)
+                .join('');
+            return `<ol>${items}</ol>`;
+        }
+
+        // --- Paragraph ---
+        return `<p>${inline(trimmed)}</p>`;
+    }).join('\n');
+}
+
+/** Inline markdown: bold, italic, links */
+function inline(text: string): string {
+    return text
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.*?)\*/g, '<em>$1</em>')
+        .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
 }
