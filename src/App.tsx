@@ -13,6 +13,7 @@ import { OnboardingPage } from '@/sections/OnboardingPage';
 import { VerifyEmailPage } from '@/sections/VerifyEmailPage';
 import { EmailVerifiedPage } from '@/sections/EmailVerifiedPage';
 import { ResetPasswordPage } from '@/sections/ResetPasswordPage';
+import { LandingPage } from '@/sections/LandingPage';
 
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
@@ -301,11 +302,9 @@ export default function App() {
         <Route
           path="/"
           element={
-            isLoading ? (
-              <LoadingScreen />
-            ) : (
-              <Navigate to={isAuthenticated ? "/dashboard" : "/login"} replace />
-            )
+            <PublicRoute>
+              <LandingPage themeProps={themeProps} />
+            </PublicRoute>
           }
         />
 

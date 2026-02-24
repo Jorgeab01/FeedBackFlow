@@ -63,6 +63,28 @@
     --sidebar-border: 240 3.7% 15.9%;
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
+
+  .landing-theme {
+    --background: 232 40% 7%;
+    --foreground: 232 19% 93%;
+    --card: 235 39% 11%;
+    --card-foreground: 232 19% 93%;
+    --popover: 235 39% 11%;
+    --popover-foreground: 232 19% 93%;
+    --primary: 271 91% 65%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 233 34% 15%;
+    --secondary-foreground: 232 19% 93%;
+    --muted: 233 34% 15%;
+    --muted-foreground: 234 13% 55%;
+    --accent: 142 71% 45%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 235 36% 18%;
+    --input: 235 36% 18%;
+    --ring: 271 91% 65%;
+  }
 }
 
 @layer base {
