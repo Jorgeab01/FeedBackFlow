@@ -25,16 +25,20 @@ export function Navbar() {
           <a href="#how-it-works" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
             Como funciona
           </a>
-          <a href="#pricing" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
-            Precios
-          </a>
           <a href="#testimonials" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
             Testimonios
+          </a>
+          <a href="#pricing" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
+            Precios
           </a>
         </div>
 
         <div className="hidden items-center gap-3 md:flex">
-          <Button variant="ghost" className="text-muted-foreground hover:text-foreground" onClick={() => navigate('/login')}>
+          <Button
+            variant="outline"
+            className="border-muted-foreground text-muted-foreground hover:bg-transparent hover:text-muted-foreground hover:border-muted-foreground"
+            onClick={() => navigate('/login')}
+          >
             Iniciar Sesion
           </Button>
           <Button className="bg-primary text-primary-foreground hover:bg-primary/90" onClick={() => navigate('/register')}>
@@ -60,14 +64,18 @@ export function Navbar() {
             <a href="#how-it-works" onClick={() => setIsOpen(false)} className="text-sm text-muted-foreground transition-colors hover:text-foreground">
               Como funciona
             </a>
-            <a href="#pricing" onClick={() => setIsOpen(false)} className="text-sm text-muted-foreground transition-colors hover:text-foreground">
-              Precios
-            </a>
             <a href="#testimonials" onClick={() => setIsOpen(false)} className="text-sm text-muted-foreground transition-colors hover:text-foreground">
               Testimonios
             </a>
+            <a href="#pricing" onClick={() => setIsOpen(false)} className="text-sm text-muted-foreground transition-colors hover:text-foreground">
+              Precios
+            </a>
             <div className="flex flex-col gap-3 pt-4 border-t border-border/50">
-              <Button variant="ghost" className="w-full justify-center text-muted-foreground hover:text-foreground" onClick={() => navigate('/login')}>
+              <Button
+                variant="outline"
+                className="w-full justify-center border-muted-foreground text-muted-foreground hover:bg-transparent hover:text-muted-foreground hover:border-muted-foreground"
+                onClick={() => navigate('/login')}
+              >
                 Iniciar Sesion
               </Button>
               <Button className="w-full justify-center bg-primary text-primary-foreground hover:bg-primary/90" onClick={() => navigate('/register')}>

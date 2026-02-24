@@ -1,12 +1,15 @@
 import { Check, ArrowRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Switch } from "@/components/ui/switch"
 import { useNavigate } from "react-router-dom"
+import { useState } from "react"
 
 const plans = [
   {
     name: "Gratis",
-    price: "0",
+    monthlyPrice: "0",
+    yearlyPrice: "0",
     description: "Para probar",
     features: [
       "QR básico",
@@ -18,7 +21,8 @@ const plans = [
   },
   {
     name: "Básico",
-    price: "5.99",
+    monthlyPrice: "5.99",
+    yearlyPrice: "4.79",
     description: "Para negocios pequeños",
     features: [
       "QR personalizado",
@@ -30,7 +34,8 @@ const plans = [
   },
   {
     name: "Pro",
-    price: "9.99",
+    monthlyPrice: "9.99",
+    yearlyPrice: "7.99",
     description: "Análisis completo",
     features: [
       "Todo lo del Básico",
@@ -46,6 +51,8 @@ const plans = [
 
 export function Pricing() {
   const navigate = useNavigate()
+  const [isYearly, setIsYearly] = useState(false)
+
   return (
     <section id="pricing" className="relative py-20 md:py-32">
       <div className="pointer-events-none absolute inset-0">
@@ -56,20 +63,40 @@ export function Pricing() {
         <div className="mx-auto max-w-2xl text-center">
           <span className="text-sm font-medium text-primary">Precios</span>
           <h2 className="mt-3 text-balance text-3xl font-bold text-foreground md:text-4xl">
-            Planes simples y transparentes
+            Planes disponibles
           </h2>
           <p className="mt-4 text-pretty text-lg leading-relaxed text-muted-foreground">
             Elige el plan que mejor se adapte a tu negocio. Sin costes ocultos.
           </p>
         </div>
 
-        <div className="mt-16 grid gap-6 lg:grid-cols-3">
+        {/* Toggle Mensual/Anual */}
+        <div className="flex items-center justify-center gap-4 mt-10">
+          <span className={`text-sm font-medium ${!isYearly ? 'text-foreground' : 'text-muted-foreground'}`}>
+            Mensual
+          </span>
+          <div className="flex items-center gap-2">
+            <Switch
+              checked={isYearly}
+              onCheckedChange={setIsYearly}
+              className="data-[state=checked]:bg-primary"
+            />
+            <span className={`text-sm font-medium ${isYearly ? 'text-foreground' : 'text-muted-foreground'}`}>
+              Anual
+            </span>
+          </div>
+          <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-0">
+            Ahorra 20%
+          </Badge>
+        </div>
+
+        <div className="mt-10 grid gap-6 lg:grid-cols-3 items-stretch">
           {plans.map((plan) => (
             <div
               key={plan.name}
-              className={`relative rounded-xl border p-8 transition-all ${plan.popular
-                  ? "border-primary/50 bg-card shadow-xl shadow-primary/10"
-                  : "border-border/50 bg-card hover:border-primary/30"
+              className={`relative rounded-xl border p-8 transition-all flex flex-col ${plan.popular
+                ? "border-primary/50 bg-card shadow-xl shadow-primary/10"
+                : "border-border/50 bg-card hover:border-primary/30"
                 }`}
             >
               {plan.popular && (
@@ -81,13 +108,20 @@ export function Pricing() {
               <div className="text-center">
                 <h3 className="text-lg font-semibold text-foreground">{plan.name}</h3>
                 <div className="mt-4 flex items-baseline justify-center gap-1">
-                  <span className="text-5xl font-bold text-foreground">{`${plan.price}€`}</span>
+                  <span className="text-5xl font-bold text-foreground">
+                    {isYearly ? plan.yearlyPrice : plan.monthlyPrice}€
+                  </span>
                   <span className="text-muted-foreground">/mes</span>
                 </div>
+                {isYearly && plan.name !== "Gratis" && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {(parseFloat(plan.yearlyPrice) * 12).toFixed(0)}€ facturados anualmente
+                  </p>
+                )}
                 <p className="mt-3 text-sm text-muted-foreground">{plan.description}</p>
               </div>
 
-              <ul className="mt-8 flex flex-col gap-3">
+              <ul className="mt-8 flex flex-col gap-3 flex-grow">
                 {plan.features.map((feature) => (
                   <li key={feature} className="flex items-center gap-3 text-sm text-muted-foreground">
                     <Check className="h-4 w-4 shrink-0 text-accent" />
@@ -99,8 +133,8 @@ export function Pricing() {
               <Button
                 onClick={() => navigate('/register')}
                 className={`mt-8 w-full ${plan.popular
-                    ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                    : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                  ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                  : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
                   }`}
                 size="lg"
               >

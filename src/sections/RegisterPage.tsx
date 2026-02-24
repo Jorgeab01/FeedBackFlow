@@ -231,8 +231,8 @@ export function RegisterPage({ onGoogleLogin, themeProps }: RegisterPageProps) {
       {/* Back Button */}
       <Button
         variant="ghost"
-        onClick={() => navigate('/login')}
-        className="fixed top-4 left-4 gap-2 text-gray-600 dark:text-gray-300"
+        onClick={() => navigate('/')}
+        className="fixed top-4 left-4 gap-2 text-gray-600 dark:text-gray-300 z-50"
       >
         <ArrowLeft className="w-4 h-4" />
         Volver

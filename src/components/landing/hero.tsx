@@ -16,7 +16,7 @@ export function Hero() {
         <div className="mx-auto max-w-3xl text-center">
           <Badge className="mb-6 border-primary/30 bg-primary/10 text-primary px-4 py-1.5 text-sm font-medium">
             <Sparkles className="mr-1.5 h-3.5 w-3.5" />
-            Nuevo: Estadisticas avanzadas con IA
+            Nuevo: Estadisticas avanzadas
           </Badge>
 
           <h1 className="text-balance text-4xl font-bold leading-tight tracking-tight text-foreground md:text-6xl lg:text-7xl">

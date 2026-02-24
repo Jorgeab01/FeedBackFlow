@@ -303,7 +303,7 @@ export default function App() {
           path="/"
           element={
             <PublicRoute>
-              <LandingPage themeProps={themeProps} />
+              <LandingPage />
             </PublicRoute>
           }
         />

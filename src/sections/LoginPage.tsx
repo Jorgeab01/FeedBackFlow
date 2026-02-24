@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { MessageSquare, Store, Sparkles, ArrowRight, UserPlus } from 'lucide-react';
+import { MessageSquare, Store, Sparkles, ArrowRight, UserPlus, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { useTheme } from '@/hooks/useTheme';
@@ -84,6 +84,16 @@ export function LoginPage({ onLogin, onGoogleLogin, themeProps }: LoginPageProps
       <div className="fixed top-4 right-4 z-50">
         <ThemeToggle theme={themeProps.theme} setTheme={themeProps.setTheme} />
       </div>
+
+      {/* Back Button */}
+      <Button
+        variant="ghost"
+        onClick={() => navigate('/')}
+        className="fixed top-4 left-4 gap-2 z-50 text-gray-600 dark:text-gray-300"
+      >
+        <ArrowLeft className="w-4 h-4" />
+        Volver
+      </Button>
 
       <div className="w-full max-w-5xl grid lg:grid-cols-2 gap-8 items-center">
         {/* Left side - Hero */}
