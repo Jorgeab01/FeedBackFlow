@@ -9,6 +9,7 @@ import { Testimonials } from "@/components/landing/testimonials"
 import { Pricing } from "@/components/landing/pricing"
 import { CTA } from "@/components/landing/cta"
 import { Footer } from "@/components/landing/footer"
+import { ScrollIndicator } from "../components/landing/scroll-indicator"
 
 export function LandingPage() {
     return (
@@ -24,6 +25,7 @@ export function LandingPage() {
                 <Pricing />
                 <CTA />
             </main>
+            <ScrollIndicator />
             <Footer />
         </div>
     )

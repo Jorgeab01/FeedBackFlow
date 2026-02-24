@@ -1,0 +1,13 @@
+﻿src/sections/DashboardPage.tsx(171,18): error TS7053: Element implicitly has an 'any' type because expression of type 'PlanType' can't be used to index type '{ free: { maxCommentsPerMonth: number; canExport: boolean; canAccessAdvancedStats: boolean; canCustomizeQR: boolean; allowedQRStyles: string[]; canExportPDF: boolean; allowedExportFormats: never[]; label: string; }; basic: { ...; }; pro: { ...; }; }'.
+  Property 'none' does not exist on type '{ free: { maxCommentsPerMonth: number; canExport: boolean; canAccessAdvancedStats: boolean; canCustomizeQR: boolean; allowedQRStyles: string[]; canExportPDF: boolean; allowedExportFormats: never[]; label: string; }; basic: { ...; }; pro: { ...; }; }'.
+src/sections/DashboardPage.tsx(900,25): error TS7053: Element implicitly has an 'any' type because expression of type 'PlanType' can't be used to index type '{ free: string; basic: string; pro: string; }'.
+  Property 'none' does not exist on type '{ free: string; basic: string; pro: string; }'.
+src/sections/DashboardPage.tsx(901,15): error TS7053: Element implicitly has an 'any' type because expression of type 'PlanType' can't be used to index type '{ free: string; basic: string; pro: string; }'.
+  Property 'none' does not exist on type '{ free: string; basic: string; pro: string; }'.
+src/sections/DashboardPage.tsx(2691,92): error TS7053: Element implicitly has an 'any' type because expression of type 'PlanType' can't be used to index type '{ free: string; basic: string; pro: string; }'.
+  Property 'none' does not exist on type '{ free: string; basic: string; pro: string; }'.
+src/sections/DashboardPage.tsx(2700,32): error TS7053: Element implicitly has an 'any' type because expression of type 'PlanType' can't be used to index type '{ free: string; basic: string; pro: string; }'.
+  Property 'none' does not exist on type '{ free: string; basic: string; pro: string; }'.
+src/sections/DashboardPage.tsx(2703,32): error TS7053: Element implicitly has an 'any' type because expression of type 'PlanType' can't be used to index type '{ free: string; basic: string; pro: string; }'.
+  Property 'none' does not exist on type '{ free: string; basic: string; pro: string; }'.
+src/sections/FeedbackPage.tsx(29,9): error TS2741: Property 'none' is missing in type '{ free: number; basic: number; pro: number; }' but required in type 'Record<PlanType, number>'.

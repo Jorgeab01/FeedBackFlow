@@ -56,7 +56,7 @@ export function DashboardPreview() {
   }
 
   return (
-    <section className="relative pt-0 pb-16 md:pb-24">
+    <section id="dashboard" className="relative pt-0 pb-16 md:pb-24">
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[400px] w-[700px] rounded-full bg-primary/5 blur-[150px]" />
       </div>
