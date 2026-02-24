@@ -137,33 +137,33 @@ export function DashboardPreview() {
                       transition={{ duration: 0.3 }}
                     >
                       <div className="p-4 space-y-6">
-                        {/* KPIs adicionales */}
-                        <div className="grid grid-cols-3 gap-4 pb-4 border-b border-border/40">
+                        {/* KPIs adicionales - Responsive grid */}
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pb-4 border-b border-border/40">
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center">
+                            <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center flex-shrink-0">
                               <TrendingUp className="w-5 h-5 text-green-600 dark:text-green-400" />
                             </div>
-                            <div>
-                              <p className="text-xs text-muted-foreground">Tendencia</p>
+                            <div className="min-w-0">
+                              <p className="text-xs text-muted-foreground truncate">Tendencia</p>
                               <p className="text-lg font-bold text-green-600 dark:text-green-400">+47%</p>
                             </div>
                           </div>
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center">
+                            <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center flex-shrink-0">
                               <Activity className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                             </div>
-                            <div>
-                              <p className="text-xs text-muted-foreground">Media por día</p>
+                            <div className="min-w-0">
+                              <p className="text-xs text-muted-foreground truncate">Media por día</p>
                               <p className="text-lg font-bold text-foreground">31.2</p>
                             </div>
                           </div>
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-amber-100 dark:bg-amber-900/30 rounded-xl flex items-center justify-center">
+                            <div className="w-10 h-10 bg-amber-100 dark:bg-amber-900/30 rounded-xl flex items-center justify-center flex-shrink-0">
                               <LineChart className="w-5 h-5 text-amber-600 dark:text-amber-400" />
                             </div>
-                            <div>
-                              <p className="text-xs text-muted-foreground">Periodo analizado</p>
-                              <p className="text-lg font-bold text-foreground">2 semanas</p>
+                            <div className="min-w-0">
+                              <p className="text-xs text-muted-foreground truncate">Período</p>
+                              <p className="text-lg font-bold text-foreground">2 sem</p>
                             </div>
                           </div>
                         </div>
