@@ -2,6 +2,7 @@
 import { Navbar } from "@/components/landing/navbar"
 import { Hero } from "@/components/landing/hero"
 import { DashboardPreview } from "@/components/landing/dashboard-preview"
+import { QrFeedbackPreview } from "@/components/landing/qr-feedback-preview"
 import { Features } from "@/components/landing/features"
 import { HowItWorks } from "@/components/landing/how-it-works"
 import { Testimonials } from "@/components/landing/testimonials"
@@ -16,6 +17,7 @@ export function LandingPage() {
             <main className="overflow-x-hidden">
                 <Hero />
                 <DashboardPreview />
+                <QrFeedbackPreview />
                 <Features />
                 <HowItWorks />
                 <Testimonials />

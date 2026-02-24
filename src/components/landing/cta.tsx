@@ -2,13 +2,20 @@ import { ArrowRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useNavigate } from "react-router-dom"
+import { motion } from "framer-motion"
 
 export function CTA() {
   const navigate = useNavigate()
   return (
     <section className="relative py-20 md:py-32">
       <div className="relative mx-auto max-w-7xl px-6">
-        <div className="overflow-hidden rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/20 via-primary/10 to-card">
+        <motion.div
+          initial={{ opacity: 0, y: 40 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-100px" }}
+          transition={{ duration: 0.7 }}
+          className="overflow-hidden rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/20 via-primary/10 to-card"
+        >
           <div className="pointer-events-none absolute inset-0">
             <div className="absolute top-0 right-0 h-[300px] w-[400px] rounded-full bg-primary/10 blur-[100px]" />
             <div className="absolute bottom-0 left-0 h-[200px] w-[300px] rounded-full bg-accent/5 blur-[80px]" />
@@ -16,15 +23,33 @@ export function CTA() {
 
           <div className="relative px-8 py-16 md:px-16 md:py-20">
             <div className="mx-auto max-w-2xl text-center">
-              <h2 className="text-balance text-3xl font-bold text-foreground md:text-4xl">
+              <motion.h2
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: 0.2 }}
+                className="text-balance text-3xl font-bold text-foreground md:text-4xl"
+              >
                 Empieza a recibir feedback{" "}
                 <span className="text-primary">hoy mismo</span>
-              </h2>
-              <p className="mx-auto mt-4 max-w-lg text-pretty text-lg leading-relaxed text-muted-foreground">
+              </motion.h2>
+              <motion.p
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: 0.3 }}
+                className="mx-auto mt-4 max-w-lg text-pretty text-lg leading-relaxed text-muted-foreground"
+              >
                 Unete a miles de negocios que ya mejoran su servicio con las opiniones anonimas de sus clientes.
-              </p>
+              </motion.p>
 
-              <div className="mx-auto mt-10 flex max-w-md flex-col gap-3 sm:flex-row">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: 0.4 }}
+                className="mx-auto mt-10 flex max-w-md flex-col gap-3 sm:flex-row"
+              >
                 <Input
                   type="email"
                   placeholder="tu@email.com"
@@ -34,14 +59,20 @@ export function CTA() {
                   Empezar Gratis
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
-              </div>
+              </motion.div>
 
-              <p className="mt-4 text-xs text-muted-foreground">
+              <motion.p
+                initial={{ opacity: 0 }}
+                whileInView={{ opacity: 1 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: 0.5 }}
+                className="mt-4 text-xs text-muted-foreground"
+              >
                 Sin tarjeta de credito. Configuracion en menos de 5 minutos.
-              </p>
+              </motion.p>
             </div>
           </div>
-        </div>
+        </motion.div>
       </div>
     </section>
   )

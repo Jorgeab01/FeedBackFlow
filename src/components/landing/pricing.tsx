@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
 import { useNavigate } from "react-router-dom"
 import { useState } from "react"
+import { motion } from "framer-motion"
 
 const plans = [
   {
@@ -60,7 +61,13 @@ export function Pricing() {
       </div>
 
       <div className="relative mx-auto max-w-7xl px-6">
-        <div className="mx-auto max-w-2xl text-center">
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-100px" }}
+          transition={{ duration: 0.6 }}
+          className="mx-auto max-w-2xl text-center"
+        >
           <span className="text-sm font-medium text-primary">Precios</span>
           <h2 className="mt-3 text-balance text-3xl font-bold text-foreground md:text-4xl">
             Planes disponibles
@@ -68,10 +75,16 @@ export function Pricing() {
           <p className="mt-4 text-pretty text-lg leading-relaxed text-muted-foreground">
             Elige el plan que mejor se adapte a tu negocio. Sin costes ocultos.
           </p>
-        </div>
+        </motion.div>
 
         {/* Toggle Mensual/Anual */}
-        <div className="flex items-center justify-center gap-4 mt-10">
+        <motion.div
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+          className="flex items-center justify-center gap-4 mt-10"
+        >
           <span className={`text-sm font-medium ${!isYearly ? 'text-foreground' : 'text-muted-foreground'}`}>
             Mensual
           </span>
@@ -88,12 +101,16 @@ export function Pricing() {
           <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-0">
             Ahorra 20%
           </Badge>
-        </div>
+        </motion.div>
 
         <div className="mt-10 grid gap-6 lg:grid-cols-3 items-stretch">
-          {plans.map((plan) => (
-            <div
+          {plans.map((plan, index) => (
+            <motion.div
               key={plan.name}
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-50px" }}
+              transition={{ duration: 0.5, delay: index * 0.12 }}
               className={`relative rounded-xl border p-8 transition-all flex flex-col ${plan.popular
                 ? "border-primary/50 bg-card shadow-xl shadow-primary/10"
                 : "border-border/50 bg-card hover:border-primary/30"
@@ -141,7 +158,7 @@ export function Pricing() {
                 {plan.cta}
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
-            </div>
+            </motion.div>
           ))}
         </div>
       </div>

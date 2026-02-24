@@ -4,13 +4,14 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
+
 import { supabase } from '@/lib/supabase'
+import { FeedbackFlowLogo } from '@/components/landing/logo'
 
 import {
   LogOut,
   QrCode,
-  MessageSquare,
+  // MessageSquare removed, using FeedbackFlowLogo instead
   TrendingUp,
   Users,
   Smile,
@@ -1028,11 +1029,18 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
         }
       });
 
-      const dailyData = Array.from(byDay.values()).map(day => ({
-        ...day,
-        avgSatisfaction: day.count > 0 ? (day.totalScore / day.count) : 0,
-        satisfactionPercentage: day.count > 0 ? ((day.totalScore / day.count) / 2) * 100 : 0,
-      }));
+      const dailyData: Array<typeof byDay extends Map<string, infer V> ? V & { avgSatisfaction: number; satisfactionPercentage: number } : never> = [];
+      let cumulativeScore = 0;
+      let cumulativeCount = 0;
+      Array.from(byDay.values()).forEach(day => {
+        cumulativeScore += day.totalScore;
+        cumulativeCount += day.count;
+        dailyData.push({
+          ...day,
+          avgSatisfaction: cumulativeCount > 0 ? (cumulativeScore / cumulativeCount) : 0,
+          satisfactionPercentage: cumulativeCount > 0 ? ((cumulativeScore / cumulativeCount) / 2) * 100 : 0,
+        });
+      });
 
       const midpoint = Math.floor(dailyData.length / 2);
       const firstHalf = dailyData.slice(0, midpoint);
@@ -1374,7 +1382,7 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
             {/* Logo y nombre - más compacto en móvil */}
             <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-shrink-0">
               <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-xl flex items-center justify-center flex-shrink-0">
-                <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                <FeedbackFlowLogo className="w-4 h-4 sm:w-5 sm:h-5" color="#ffffff" />
               </div>
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
@@ -1464,7 +1472,7 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                   <p className="text-3xl font-bold text-gray-900 dark:text-white">{stats.total}</p>
                 </div>
                 <div className="w-12 h-12 bg-indigo-100 dark:bg-indigo-900/30 rounded-xl flex items-center justify-center">
-                  <MessageSquare className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
+                  <FeedbackFlowLogo className="w-6 h-6" color="#4f46e5" />
                 </div>
               </div>
             </CardContent>
@@ -1703,61 +1711,84 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                                 <BarChart3 className="w-4 h-4" />
                                 Volumen de comentarios por día
                               </h4>
-                              <div className="h-48 flex items-end justify-center gap-1">
-                                {advancedChartData.dailyData.slice(-14).map((day, i) => (
-                                  <div key={i} className="flex-1 min-w-0 max-w-[40px] flex flex-col items-center gap-1 group relative">
-                                    <div className="relative w-full">
-                                      <div
-                                        className="w-full bg-green-500/20 dark:bg-green-400/20 rounded-t transition-all duration-300 group-hover:bg-green-500/40"
-                                        style={{ height: `${(day.count / (advancedChartData.maxDailyCount || 1)) * 120}px` }}
-                                      >
-                                        {(() => {
-                                          const hasNeutral = day.neutral > 0;
-                                          const hasSad = day.sad > 0;
-                                          const topSegment = hasSad ? 'sad' : hasNeutral ? 'neutral' : 'happy';
-                                          return (
-                                            <>
-                                              <div
-                                                className={`absolute bottom-0 w-full bg-green-500 dark:bg-green-400 ${topSegment === 'happy' ? 'rounded-t' : ''} transition-all duration-300`}
-                                                style={{ height: `${day.count > 0 ? (day.happy / day.count) * 100 : 0}%`, opacity: 0.9 }}
-                                              />
-                                              <div
-                                                className={`absolute bottom-0 w-full bg-yellow-500 dark:bg-yellow-400 ${topSegment === 'neutral' ? 'rounded-t' : ''} transition-all duration-300`}
-                                                style={{
-                                                  height: `${day.count > 0 ? (day.neutral / day.count) * 100 : 0}%`,
-                                                  bottom: `${day.count > 0 ? (day.happy / day.count) * 100 : 0}%`,
-                                                  opacity: 0.9
-                                                }}
-                                              />
-                                              <div
-                                                className={`absolute bottom-0 w-full bg-red-500 dark:bg-red-400 ${topSegment === 'sad' ? 'rounded-t' : ''} transition-all duration-300`}
-                                                style={{
-                                                  height: `${day.count > 0 ? (day.sad / day.count) * 100 : 0}%`,
-                                                  bottom: `${day.count > 0 ? ((day.happy + day.neutral) / day.count) * 100 : 0}%`,
-                                                  opacity: 0.9
-                                                }}
-                                              />
-                                            </>
-                                          );
-                                        })()}
-                                      </div>
-                                      <div className="absolute -top-20 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white text-xs rounded-lg px-3 py-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-20 shadow-xl">
-                                        <div className="font-semibold mb-1">{day.dateFormatted}</div>
-                                        <div className="text-gray-300 mb-1">{day.count} comentarios</div>
-                                        <div className="flex items-center gap-2 text-[10px]">
-                                          <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-green-400"></div> {day.happy}</span>
-                                          <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-yellow-400"></div> {day.neutral}</span>
-                                          <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-red-400"></div> {day.sad}</span>
+                              <div className="h-48 flex items-end gap-1">
+                                {(() => {
+                                  // If more than 30 days, aggregate into weekly bars
+                                  const rawData = advancedChartData.dailyData;
+                                  const useWeekly = rawData.length > 30;
+                                  const barData = useWeekly
+                                    ? rawData.reduce((acc: Array<{ label: string; count: number; happy: number; neutral: number; sad: number; dateFormatted: string }>, day, i) => {
+                                      const weekIndex = Math.floor(i / 7);
+                                      if (!acc[weekIndex]) {
+                                        acc[weekIndex] = { label: day.dateFormatted.split(' ').slice(0, 2).join(' '), count: 0, happy: 0, neutral: 0, sad: 0, dateFormatted: day.dateFormatted };
+                                      }
+                                      acc[weekIndex].count += day.count;
+                                      acc[weekIndex].happy += day.happy;
+                                      acc[weekIndex].neutral += day.neutral;
+                                      acc[weekIndex].sad += day.sad;
+                                      // Update label to show range
+                                      if ((i + 1) % 7 === 0 || i === rawData.length - 1) {
+                                        acc[weekIndex].dateFormatted = `${acc[weekIndex].label} - ${day.dateFormatted}`;
+                                      }
+                                      return acc;
+                                    }, [])
+                                    : rawData;
+                                  const maxCount = Math.max(...barData.map(d => d.count), 1);
+                                  return barData.map((day, i) => (
+                                    <div key={i} className="flex-1 min-w-0 flex flex-col items-center gap-1 group relative">
+                                      <div className="relative w-full">
+                                        <div
+                                          className="w-full bg-green-500/20 dark:bg-green-400/20 rounded-t transition-all duration-300 group-hover:bg-green-500/40"
+                                          style={{ height: `${(day.count / maxCount) * 120}px` }}
+                                        >
+                                          {(() => {
+                                            const hasNeutral = day.neutral > 0;
+                                            const hasSad = day.sad > 0;
+                                            const topSegment = hasSad ? 'sad' : hasNeutral ? 'neutral' : 'happy';
+                                            return (
+                                              <>
+                                                <div
+                                                  className={`absolute bottom-0 w-full bg-green-500 dark:bg-green-400 ${topSegment === 'happy' ? 'rounded-t' : ''} transition-all duration-300`}
+                                                  style={{ height: `${day.count > 0 ? (day.happy / day.count) * 100 : 0}%`, opacity: 0.9 }}
+                                                />
+                                                <div
+                                                  className={`absolute bottom-0 w-full bg-yellow-500 dark:bg-yellow-400 ${topSegment === 'neutral' ? 'rounded-t' : ''} transition-all duration-300`}
+                                                  style={{
+                                                    height: `${day.count > 0 ? (day.neutral / day.count) * 100 : 0}%`,
+                                                    bottom: `${day.count > 0 ? (day.happy / day.count) * 100 : 0}%`,
+                                                    opacity: 0.9
+                                                  }}
+                                                />
+                                                <div
+                                                  className={`absolute bottom-0 w-full bg-red-500 dark:bg-red-400 ${topSegment === 'sad' ? 'rounded-t' : ''} transition-all duration-300`}
+                                                  style={{
+                                                    height: `${day.count > 0 ? (day.sad / day.count) * 100 : 0}%`,
+                                                    bottom: `${day.count > 0 ? ((day.happy + day.neutral) / day.count) * 100 : 0}%`,
+                                                    opacity: 0.9
+                                                  }}
+                                                />
+                                              </>
+                                            );
+                                          })()}
+                                        </div>
+                                        <div className="absolute -top-20 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white text-xs rounded-lg px-3 py-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-20 shadow-xl">
+                                          <div className="font-semibold mb-1">{day.dateFormatted}</div>
+                                          <div className="text-gray-300 mb-1">{day.count} comentarios</div>
+                                          <div className="flex items-center gap-2 text-[10px]">
+                                            <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-green-400"></div> {day.happy}</span>
+                                            <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-yellow-400"></div> {day.neutral}</span>
+                                            <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-red-400"></div> {day.sad}</span>
+                                          </div>
                                         </div>
                                       </div>
+                                      <span className="text-[10px] text-gray-400 rotate-45 origin-left translate-y-2">
+                                        {useWeekly ? (day as any).label || day.dateFormatted.split(' ')[0] : day.dateFormatted.split(' ')[0]}
+                                      </span>
                                     </div>
-                                    <span className="text-[10px] text-gray-400 rotate-45 origin-left translate-y-2">
-                                      {day.dateFormatted.split(' ')[0]}
-                                    </span>
-                                  </div>
-                                ))}
+                                  ));
+                                })()}
                               </div>
-                              <div className="flex justify-center gap-4 mt-6 text-xs">
+                              <div className="flex justify-center gap-8 mt-8 text-xs">
                                 <div className="flex items-center gap-1">
                                   <div className="w-3 h-3 bg-green-500 rounded-sm" />
                                   <span className="text-gray-600 dark:text-gray-400">Felices</span>
@@ -1777,7 +1808,7 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                             <div>
                               <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4 flex items-center gap-2">
                                 <LineChart className="w-4 h-4" />
-                                Evolución de la satisfacción media
+                                Evolución de la satisfacción acumulada
                               </h4>
                               <div className="h-48 relative pl-10">
                                 <div className="absolute left-0 top-0 bottom-0 w-10 flex flex-col justify-between text-[10px] text-gray-400 pr-2 text-right">
@@ -1801,61 +1832,60 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                                     />
                                   ))}
 
-                                  {advancedChartData.dailyData.length > 0 && (
-                                    <path
-                                      d={`
-                                        M ${advancedChartData.dailyData.length === 1 ? 150 : 0} ${120 - (advancedChartData.dailyData[0]?.satisfactionPercentage || 0) * 1.2}
-                                        ${advancedChartData.dailyData.map((day, i) => {
-                                        const x = advancedChartData.dailyData.length === 1 ? 150 : (i / (advancedChartData.dailyData.length - 1)) * 300;
-                                        const y = 120 - (day.satisfactionPercentage * 1.2);
-                                        return `L ${x} ${y}`;
-                                      }).join(' ')}
-                                        L ${advancedChartData.dailyData.length === 1 ? 150 : 300} 120 L ${advancedChartData.dailyData.length === 1 ? 150 : 0} 120 Z
-                                      `}
-                                      className="fill-green-500/10 dark:fill-green-400/10"
-                                    />
-                                  )}
+                                  {advancedChartData.dailyData.length > 0 && (() => {
+                                    // Generate smooth curve points
+                                    const points = advancedChartData.dailyData.map((day, i) => ({
+                                      x: advancedChartData.dailyData.length === 1 ? 150 : (i / (advancedChartData.dailyData.length - 1)) * 300,
+                                      y: 120 - (day.satisfactionPercentage * 1.2)
+                                    }));
 
-                                  {advancedChartData.dailyData.length > 0 && (
-                                    <path
-                                      d={`
-                                        M ${advancedChartData.dailyData.length === 1 ? 150 : 0} ${120 - (advancedChartData.dailyData[0]?.satisfactionPercentage || 0) * 1.2}
-                                        ${advancedChartData.dailyData.map((day, i) => {
-                                        const x = advancedChartData.dailyData.length === 1 ? 150 : (i / (advancedChartData.dailyData.length - 1)) * 300;
-                                        const y = 120 - (day.satisfactionPercentage * 1.2);
-                                        return `L ${x} ${y}`;
-                                      }).join(' ')}
-                                      `}
-                                      fill="none"
-                                      stroke="currentColor"
-                                      strokeWidth="2"
-                                      className="text-green-500 dark:text-green-400"
-                                    />
-                                  )}
+                                    // Build smooth cubic bezier path (Catmull-Rom to Bezier)
+                                    const smoothPath = (pts: typeof points) => {
+                                      if (pts.length < 2) return `M ${pts[0].x} ${pts[0].y}`;
+                                      if (pts.length === 2) return `M ${pts[0].x} ${pts[0].y} L ${pts[1].x} ${pts[1].y}`;
 
-                                  {advancedChartData.dailyData.map((day, i) => {
-                                    const x = advancedChartData.dailyData.length === 1 ? 150 : (i / (advancedChartData.dailyData.length - 1)) * 300;
-                                    const y = 120 - (day.satisfactionPercentage * 1.2);
+                                      let d = `M ${pts[0].x} ${pts[0].y}`;
+                                      for (let i = 0; i < pts.length - 1; i++) {
+                                        const p0 = pts[Math.max(0, i - 1)];
+                                        const p1 = pts[i];
+                                        const p2 = pts[i + 1];
+                                        const p3 = pts[Math.min(pts.length - 1, i + 2)];
 
-                                    let pointColor;
-                                    if (day.satisfactionPercentage < 40) pointColor = '#ef4444';
-                                    else if (day.satisfactionPercentage < 60) pointColor = '#f97316';
-                                    else if (day.satisfactionPercentage < 80) pointColor = '#eab308';
-                                    else pointColor = '#22c55e';
+                                        const tension = 0.3;
+                                        const cp1x = p1.x + (p2.x - p0.x) * tension;
+                                        const cp1y = p1.y + (p2.y - p0.y) * tension;
+                                        const cp2x = p2.x - (p3.x - p1.x) * tension;
+                                        const cp2y = p2.y - (p3.y - p1.y) * tension;
+
+                                        d += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p2.x} ${p2.y}`;
+                                      }
+                                      return d;
+                                    };
+
+                                    const curvePath = smoothPath(points);
+                                    const lastPt = points[points.length - 1];
+                                    const firstPt = points[0];
 
                                     return (
-                                      <circle
-                                        key={i}
-                                        cx={x}
-                                        cy={y}
-                                        r="3"
-                                        fill={pointColor}
-                                        className="hover:r-5 transition-all cursor-pointer"
-                                      >
-                                        <title>{day.dateFormatted}: {day.satisfactionPercentage.toFixed(0)}% satisfacción</title>
-                                      </circle>
+                                      <>
+                                        {/* Filled area */}
+                                        <path
+                                          d={`${curvePath} L ${lastPt.x} 120 L ${firstPt.x} 120 Z`}
+                                          className="fill-green-500/10 dark:fill-green-400/10"
+                                        />
+                                        {/* Smooth line */}
+                                        <path
+                                          d={curvePath}
+                                          fill="none"
+                                          stroke="currentColor"
+                                          strokeWidth="2"
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          className="text-green-500 dark:text-green-400"
+                                        />
+                                      </>
                                     );
-                                  })}
+                                  })()}
                                 </svg>
 
                               </div>
@@ -1900,7 +1930,7 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                               })}
                             </div>
 
-                            <div className="flex justify-center items-center gap-4 mt-4 text-xs">
+                            <div className="flex justify-center items-center gap-6 mt-4 text-xs">
                               <div className="flex items-center gap-1">
                                 <div className="w-3 h-3 bg-red-500 rounded-sm" />
                                 <span className="text-gray-600 dark:text-gray-400">0-40%</span>
@@ -2253,7 +2283,7 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                         className="w-10 h-10 rounded-lg flex items-center justify-center"
                         style={{ backgroundColor: qrFgColor }}
                       >
-                        <MessageSquare className="w-5 h-5" style={{ color: qrBgColor }} />
+                        <FeedbackFlowLogo className="w-5 h-5" color={qrBgColor} />
                       </div>
                     </div>
                   </div>
@@ -3129,7 +3159,16 @@ const formatDate = (dateString: string): string => {
   }
 };
 
+const COMMENTS_BATCH_SIZE = 20;
+
 function CommentsList({ comments, isLoading, onDeleteClick, getSatisfactionIcon, getSatisfactionBadge }: CommentsListProps) {
+  const [visibleCount, setVisibleCount] = useState(COMMENTS_BATCH_SIZE);
+
+  // Reset visible count when comments change (tab switch, date filter, etc.)
+  useEffect(() => {
+    setVisibleCount(COMMENTS_BATCH_SIZE);
+  }, [comments]);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -3142,7 +3181,7 @@ function CommentsList({ comments, isLoading, onDeleteClick, getSatisfactionIcon,
     return (
       <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-0 shadow-lg dark:shadow-gray-900/50">
         <CardContent className="p-12 text-center">
-          <MessageSquare className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+          <div className="mx-auto mb-4"><FeedbackFlowLogo className="w-12 h-12" color="#9ca3af" /></div>
           <p className="text-gray-500 dark:text-gray-400 mb-2">No hay comentarios en este período.</p>
           <p className="text-sm text-gray-400 dark:text-gray-500">Prueba ajustando los filtros de fecha.</p>
         </CardContent>
@@ -3150,17 +3189,21 @@ function CommentsList({ comments, isLoading, onDeleteClick, getSatisfactionIcon,
     );
   }
 
+  const visibleComments = comments.slice(0, visibleCount);
+  const hasMore = visibleCount < comments.length;
+  const remaining = comments.length - visibleCount;
+
   return (
-    <ScrollArea className="h-[500px]">
+    <div>
       <div className="space-y-4">
         <AnimatePresence>
-          {comments.map((comment, index) => (
+          {visibleComments.map((comment, index) => (
             <motion.div
               key={comment.id}
-              initial={{ opacity: 0, y: 20 }}
+              initial={index >= visibleCount - COMMENTS_BATCH_SIZE ? { opacity: 0, y: 20 } : false}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              transition={{ delay: index * 0.05 }}
+              transition={{ delay: index >= visibleCount - COMMENTS_BATCH_SIZE ? (index - (visibleCount - COMMENTS_BATCH_SIZE)) * 0.03 : 0 }}
             >
               <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-0 shadow-md hover:shadow-lg transition-shadow dark:shadow-gray-900/30">
                 <CardContent className="p-5">
@@ -3190,6 +3233,23 @@ function CommentsList({ comments, isLoading, onDeleteClick, getSatisfactionIcon,
           ))}
         </AnimatePresence>
       </div>
-    </ScrollArea>
+
+      {/* Load more button */}
+      {hasMore && (
+        <div className="flex flex-col items-center gap-2 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+          <Button
+            variant="outline"
+            onClick={() => setVisibleCount(prev => prev + COMMENTS_BATCH_SIZE)}
+            className="gap-2 dark:border-gray-600 dark:text-gray-300 px-6"
+          >
+            <ChevronDown className="w-4 h-4" />
+            Cargar más ({Math.min(remaining, COMMENTS_BATCH_SIZE)} de {remaining} restantes)
+          </Button>
+          <p className="text-xs text-gray-400 dark:text-gray-500">
+            Mostrando {visibleComments.length} de {comments.length} comentarios
+          </p>
+        </div>
+      )}
+    </div>
   );
 }

@@ -1,19 +1,20 @@
 import { Routes, Route, Navigate, useNavigate, useParams } from 'react-router-dom';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { supabase } from '@/lib/supabase';
 
-import { LoginPage } from '@/sections/LoginPage';
-import { RegisterPage } from '@/sections/RegisterPage';
-import { PlansPage } from '@/sections/PlansPage';
-import { DashboardPage } from '@/sections/DashboardPage';
-import { FeedbackPage } from '@/sections/FeedbackPage';
-import { MaintenancePage } from '@/sections/MaintenancePage';
-import { TermsPage } from '@/sections/TermsPage';
-import { OnboardingPage } from '@/sections/OnboardingPage';
-import { VerifyEmailPage } from '@/sections/VerifyEmailPage';
-import { EmailVerifiedPage } from '@/sections/EmailVerifiedPage';
-import { ResetPasswordPage } from '@/sections/ResetPasswordPage';
-import { LandingPage } from '@/sections/LandingPage';
+// Lazy-loaded pages for code-splitting (reduces initial bundle size)
+const LoginPage = lazy(() => import('@/sections/LoginPage').then(m => ({ default: m.LoginPage })));
+const RegisterPage = lazy(() => import('@/sections/RegisterPage').then(m => ({ default: m.RegisterPage })));
+const PlansPage = lazy(() => import('@/sections/PlansPage').then(m => ({ default: m.PlansPage })));
+const DashboardPage = lazy(() => import('@/sections/DashboardPage').then(m => ({ default: m.DashboardPage })));
+const FeedbackPage = lazy(() => import('@/sections/FeedbackPage').then(m => ({ default: m.FeedbackPage })));
+const MaintenancePage = lazy(() => import('@/sections/MaintenancePage').then(m => ({ default: m.MaintenancePage })));
+const TermsPage = lazy(() => import('@/sections/TermsPage').then(m => ({ default: m.TermsPage })));
+const OnboardingPage = lazy(() => import('@/sections/OnboardingPage').then(m => ({ default: m.OnboardingPage })));
+const VerifyEmailPage = lazy(() => import('@/sections/VerifyEmailPage').then(m => ({ default: m.VerifyEmailPage })));
+const EmailVerifiedPage = lazy(() => import('@/sections/EmailVerifiedPage').then(m => ({ default: m.EmailVerifiedPage })));
+const ResetPasswordPage = lazy(() => import('@/sections/ResetPasswordPage').then(m => ({ default: m.ResetPasswordPage })));
+const LandingPage = lazy(() => import('@/sections/LandingPage').then(m => ({ default: m.LandingPage })));
 
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
@@ -204,124 +205,126 @@ export default function App() {
 
   return (
     <>
-      <Routes>
-        {/* Páginas Legales */}
-        <Route path="/terminos-y-condiciones" element={<TermsPage themeProps={themeProps} />} />
+      <Suspense fallback={<LoadingScreen />}>
+        <Routes>
+          {/* Páginas Legales */}
+          <Route path="/terminos-y-condiciones" element={<TermsPage themeProps={themeProps} />} />
 
-        {/* 🌍 Pública - siempre accesible */}
-        <Route path="/feedback/:businessId" element={<FeedbackRoute />} />
+          {/* 🌍 Pública - siempre accesible */}
+          <Route path="/feedback/:businessId" element={<FeedbackRoute />} />
 
-        {/* 🔓 Rutas públicas */}
-        <Route
-          path="/login"
-          element={
-            <PublicRoute>
-              <LoginPage onLogin={login} onGoogleLogin={loginWithGoogle} themeProps={themeProps} />
-            </PublicRoute>
-          }
-        />
+          {/* 🔓 Rutas públicas */}
+          <Route
+            path="/login"
+            element={
+              <PublicRoute>
+                <LoginPage onLogin={login} onGoogleLogin={loginWithGoogle} themeProps={themeProps} />
+              </PublicRoute>
+            }
+          />
 
-        <Route
-          path="/verify-email"
-          element={<VerifyEmailPage themeProps={themeProps} />}
-        />
+          <Route
+            path="/verify-email"
+            element={<VerifyEmailPage themeProps={themeProps} />}
+          />
 
-        <Route
-          path="/email-verified"
-          element={<EmailVerifiedPage themeProps={themeProps} />}
-        />
+          <Route
+            path="/email-verified"
+            element={<EmailVerifiedPage themeProps={themeProps} />}
+          />
 
-        <Route
-          path="/reset-password"
-          element={
-            <ResetPasswordPage themeProps={themeProps} />
-          }
-        />
+          <Route
+            path="/reset-password"
+            element={
+              <ResetPasswordPage themeProps={themeProps} />
+            }
+          />
 
-        <Route
-          path="/register"
-          element={
-            <PublicRoute>
-              <RegisterPage
-                onGoogleLogin={loginWithGoogle}
-                themeProps={themeProps}
-              />
-            </PublicRoute>
-          }
-        />
-
-        <Route
-          path="/plans"
-          element={
-            <PlansRoute>
-              <PlansPage
-                onSelectPlan={handleSelectPlan}
-                isAuthenticated={isAuthenticated}
-                user={user}
-                themeProps={themeProps}
-              />
-            </PlansRoute>
-          }
-        />
-
-        {/* 🔐 Ruta privada - DASHBOARD */}
-        <Route
-          path="/dashboard"
-          element={
-            <PrivateRoute>
-              {user ? (
-                <DashboardPage
-                  user={user}
-                  onLogout={logout}
+          <Route
+            path="/register"
+            element={
+              <PublicRoute>
+                <RegisterPage
+                  onGoogleLogin={loginWithGoogle}
                   themeProps={themeProps}
                 />
+              </PublicRoute>
+            }
+          />
+
+          <Route
+            path="/plans"
+            element={
+              <PlansRoute>
+                <PlansPage
+                  onSelectPlan={handleSelectPlan}
+                  isAuthenticated={isAuthenticated}
+                  user={user}
+                  themeProps={themeProps}
+                />
+              </PlansRoute>
+            }
+          />
+
+          {/* 🔐 Ruta privada - DASHBOARD */}
+          <Route
+            path="/dashboard"
+            element={
+              <PrivateRoute>
+                {user ? (
+                  <DashboardPage
+                    user={user}
+                    onLogout={logout}
+                    themeProps={themeProps}
+                  />
+                ) : (
+                  <LoadingScreen />
+                )}
+              </PrivateRoute>
+            }
+          />
+
+          {/* 📋 Ruta Onboarding para Google Users */}
+          <Route
+            path="/onboarding"
+            element={
+              !isLoading && isAuthenticated && user ? (
+                user.businessName === 'Configurando Negocio...' ? (
+                  <OnboardingPage user={user} themeProps={themeProps} />
+                ) : (
+                  <Navigate to="/dashboard" replace />
+                )
               ) : (
                 <LoadingScreen />
-              )}
-            </PrivateRoute>
-          }
-        />
-
-        {/* 📋 Ruta Onboarding para Google Users */}
-        <Route
-          path="/onboarding"
-          element={
-            !isLoading && isAuthenticated && user ? (
-              user.businessName === 'Configurando Negocio...' ? (
-                <OnboardingPage user={user} themeProps={themeProps} />
-              ) : (
-                <Navigate to="/dashboard" replace />
               )
-            ) : (
-              <LoadingScreen />
-            )
-          }
-        />
+            }
+          />
 
-        {/* 🏠 Ruta raíz — renderiza landing inmediatamente, redirige si ya está autenticado */}
-        <Route
-          path="/"
-          element={
-            !isLoading && isAuthenticated ? (
-              <Navigate to="/dashboard" replace />
-            ) : (
-              <LandingPage />
-            )
-          }
-        />
+          {/* 🏠 Ruta raíz — renderiza landing inmediatamente, redirige si ya está autenticado */}
+          <Route
+            path="/"
+            element={
+              !isLoading && isAuthenticated ? (
+                <Navigate to="/dashboard" replace />
+              ) : (
+                <LandingPage />
+              )
+            }
+          />
 
-        {/* ⚠️ Fallback - cualquier otra ruta */}
-        <Route
-          path="*"
-          element={
-            isLoading ? (
-              <LoadingScreen />
-            ) : (
-              <Navigate to={isAuthenticated ? "/dashboard" : "/login"} replace />
-            )
-          }
-        />
-      </Routes>
+          {/* ⚠️ Fallback - cualquier otra ruta */}
+          <Route
+            path="*"
+            element={
+              isLoading ? (
+                <LoadingScreen />
+              ) : (
+                <Navigate to={isAuthenticated ? "/dashboard" : "/login"} replace />
+              )
+            }
+          />
+        </Routes>
+      </Suspense>
 
       <Toaster />
     </>

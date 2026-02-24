@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { MessageSquare, Store, Sparkles, ArrowRight, UserPlus, ArrowLeft } from 'lucide-react';
+import { Store, Sparkles, ArrowRight, UserPlus, ArrowLeft } from 'lucide-react';
+import { FeedbackFlowLogo } from '@/components/landing/logo';
 import { toast } from 'sonner';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { useTheme } from '@/hooks/useTheme';
@@ -73,7 +74,7 @@ export function LoginPage({ onLogin, onGoogleLogin, themeProps }: LoginPageProps
   };
 
   const features = [
-    { icon: MessageSquare, text: 'Recibe comentarios en tiempo real' },
+    { icon: ({ className }: { className?: string }) => <FeedbackFlowLogo className={className} />, text: 'Recibe comentarios en tiempo real' },
     { icon: Store, text: 'Gestiona tu reputación online' },
     { icon: Sparkles, text: 'Mejora la experiencia de tus clientes' },
   ];
@@ -156,7 +157,7 @@ export function LoginPage({ onLogin, onGoogleLogin, themeProps }: LoginPageProps
                 transition={{ delay: 0.3, type: 'spring', stiffness: 200 }}
                 className="mx-auto w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-2xl flex items-center justify-center mb-4"
               >
-                <MessageSquare className="w-8 h-8 text-white" />
+                <FeedbackFlowLogo className="w-8 h-8" color="#ffffff" />
               </motion.div>
               <CardTitle className="text-2xl font-bold text-gray-900 dark:text-white">
                 Iniciar Sesión

@@ -1,4 +1,5 @@
 import { Star } from "lucide-react"
+import { motion } from "framer-motion"
 
 const testimonials = [
   {
@@ -32,7 +33,13 @@ export function Testimonials() {
       </div>
 
       <div className="relative mx-auto max-w-7xl px-6">
-        <div className="mx-auto max-w-2xl text-center">
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-100px" }}
+          transition={{ duration: 0.6 }}
+          className="mx-auto max-w-2xl text-center"
+        >
           <span className="text-sm font-medium text-primary">Testimonios</span>
           <h2 className="mt-3 text-balance text-3xl font-bold text-foreground md:text-4xl">
             Lo que dicen nuestros clientes
@@ -40,12 +47,16 @@ export function Testimonials() {
           <p className="mt-4 text-pretty text-lg leading-relaxed text-muted-foreground">
             Miles de negocios ya confian en FeedbackFlow para mejorar su servicio.
           </p>
-        </div>
+        </motion.div>
 
         <div className="mt-16 grid gap-6 md:grid-cols-3">
-          {testimonials.map((testimonial) => (
-            <div
+          {testimonials.map((testimonial, index) => (
+            <motion.div
               key={testimonial.name}
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-50px" }}
+              transition={{ duration: 0.5, delay: index * 0.12 }}
               className="rounded-xl border border-border/50 bg-card p-6 transition-all hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5"
             >
               <div className="flex gap-1">
@@ -65,7 +76,7 @@ export function Testimonials() {
                   <p className="text-xs text-muted-foreground">{testimonial.role}</p>
                 </div>
               </div>
-            </div>
+            </motion.div>
           ))}
         </div>
       </div>

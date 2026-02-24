@@ -206,35 +206,6 @@ export function DashboardPreview() {
                                         }}
                                       />
                                     </div>
-
-                                    {/* Tooltip mejorado */}
-                                    <div className="absolute -top-20 left-1/2 transform -translate-x-1/2 bg-popover text-popover-foreground text-xs rounded-lg px-3 py-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-20 shadow-lg border border-border min-w-[140px]">
-                                      <div className="font-semibold mb-1 border-b border-border pb-1">{day.date}</div>
-                                      <div className="space-y-1">
-                                        <div className="flex justify-between">
-                                          <span className="text-muted-foreground">Total:</span>
-                                          <span className="font-medium">{day.count}</span>
-                                        </div>
-                                        <div className="flex justify-between text-green-600">
-                                          <span>😊 Felices:</span>
-                                          <span>{day.happy}</span>
-                                        </div>
-                                        <div className="flex justify-between text-yellow-600">
-                                          <span>😐 Neutros:</span>
-                                          <span>{day.neutral}</span>
-                                        </div>
-                                        <div className="flex justify-between text-red-600">
-                                          <span>😞 Malas:</span>
-                                          <span>{day.sad}</span>
-                                        </div>
-                                        <div className="flex justify-between pt-1 border-t border-border mt-1">
-                                          <span className="text-muted-foreground">Sat.:</span>
-                                          <span className={`font-bold ${day.satisfactionPercentage >= 80 ? 'text-green-600' : day.satisfactionPercentage >= 60 ? 'text-yellow-600' : 'text-red-600'}`}>
-                                            {day.satisfactionPercentage}%
-                                          </span>
-                                        </div>
-                                      </div>
-                                    </div>
                                   </div>
                                   <span className="text-[10px] text-muted-foreground rotate-45 origin-left translate-y-2">
                                     {day.date.split(' ')[0]}
@@ -262,7 +233,7 @@ export function DashboardPreview() {
                           <div>
                             <h4 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
                               <LineChart className="w-4 h-4 text-muted-foreground" />
-                              Evolución de la satisfacción media
+                              Evolución de la satisfacción acumulada
                             </h4>
                             <div className="h-48 relative">
                               <svg className="w-full h-full" viewBox="0 0 300 120" preserveAspectRatio="none">
@@ -280,50 +251,53 @@ export function DashboardPreview() {
                                   />
                                 ))}
 
-                                {/* Area fill */}
-                                <path
-                                  d={`
-                                    M 0 ${120 - (dailyData[0]?.satisfactionPercentage || 0) * 1.2}
-                                    ${dailyData.map((day, i) => {
-                                    const x = (i / (dailyData.length - 1)) * 300
-                                    const y = 120 - (day.satisfactionPercentage * 1.2)
-                                    return `L ${x} ${y}`
-                                  }).join(' ')}
-                                    L 300 120 L 0 120 Z
-                                  `}
-                                  className="fill-green-500/10 dark:fill-green-400/10"
-                                />
+                                {/* Smooth curve */}
+                                {(() => {
+                                  const points = dailyData.map((day, i) => ({
+                                    x: (i / (dailyData.length - 1)) * 300,
+                                    y: 120 - (day.satisfactionPercentage * 1.2)
+                                  }))
 
-                                {/* Line */}
-                                <path
-                                  d={`
-                                    M 0 ${120 - (dailyData[0]?.satisfactionPercentage || 0) * 1.2}
-                                    ${dailyData.map((day, i) => {
-                                    const x = (i / (dailyData.length - 1)) * 300
-                                    const y = 120 - (day.satisfactionPercentage * 1.2)
-                                    return `L ${x} ${y}`
-                                  }).join(' ')}
-                                  `}
-                                  fill="none"
-                                  stroke="currentColor"
-                                  strokeWidth="2"
-                                  className="text-green-500 dark:text-green-400"
-                                />
+                                  const smoothPath = (pts: typeof points) => {
+                                    if (pts.length < 2) return `M ${pts[0].x} ${pts[0].y}`
+                                    let d = `M ${pts[0].x} ${pts[0].y}`
+                                    for (let i = 0; i < pts.length - 1; i++) {
+                                      const p0 = pts[Math.max(0, i - 1)]
+                                      const p1 = pts[i]
+                                      const p2 = pts[i + 1]
+                                      const p3 = pts[Math.min(pts.length - 1, i + 2)]
+                                      const tension = 0.3
+                                      const cp1x = p1.x + (p2.x - p0.x) * tension
+                                      const cp1y = p1.y + (p2.y - p0.y) * tension
+                                      const cp2x = p2.x - (p3.x - p1.x) * tension
+                                      const cp2y = p2.y - (p3.y - p1.y) * tension
+                                      d += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p2.x} ${p2.y}`
+                                    }
+                                    return d
+                                  }
 
-                                {/* Points */}
-                                {dailyData.map((day, i) => {
-                                  const x = (i / (dailyData.length - 1)) * 300
-                                  const y = 120 - (day.satisfactionPercentage * 1.2)
+                                  const curvePath = smoothPath(points)
+                                  const lastPt = points[points.length - 1]
+                                  const firstPt = points[0]
+
                                   return (
-                                    <circle
-                                      key={i}
-                                      cx={x}
-                                      cy={y}
-                                      r="3"
-                                      className="fill-green-500 dark:fill-green-400"
-                                    />
+                                    <>
+                                      <path
+                                        d={`${curvePath} L ${lastPt.x} 120 L ${firstPt.x} 120 Z`}
+                                        className="fill-green-500/10 dark:fill-green-400/10"
+                                      />
+                                      <path
+                                        d={curvePath}
+                                        fill="none"
+                                        stroke="currentColor"
+                                        strokeWidth="2"
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        className="text-green-500 dark:text-green-400"
+                                      />
+                                    </>
                                   )
-                                })}
+                                })()}
                               </svg>
                             </div>
                           </div>

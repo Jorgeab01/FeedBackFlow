@@ -1,0 +1,12 @@
+# FeedbackFlow robots.txt
+User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /onboarding
+Disallow: /plans
+Disallow: /verify-email
+Disallow: /email-verified
+Disallow: /reset-password
+Disallow: /feedback/
+
+Sitemap: https://feedbackflow.app/sitemap.xml

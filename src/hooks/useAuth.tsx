@@ -384,7 +384,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.warn('Logout warning:', err);
     } finally {
       setIsLoading(false);
-      window.location.replace('/login');
+      window.location.replace('/');
     }
   }, [clearAuth]);
 

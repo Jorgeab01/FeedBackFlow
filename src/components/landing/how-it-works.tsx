@@ -1,4 +1,5 @@
 import { UserPlus, Share2, BarChart3, ArrowRight } from "lucide-react"
+import { motion } from "framer-motion"
 
 const steps = [
   {
@@ -29,7 +30,13 @@ export function HowItWorks() {
       </div>
 
       <div className="relative mx-auto max-w-7xl px-6">
-        <div className="mx-auto max-w-2xl text-center">
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-100px" }}
+          transition={{ duration: 0.6 }}
+          className="mx-auto max-w-2xl text-center"
+        >
           <span className="text-sm font-medium text-primary">Como Funciona</span>
           <h2 className="mt-3 text-balance text-3xl font-bold text-foreground md:text-4xl">
             Tres pasos simples para empezar
@@ -37,11 +44,18 @@ export function HowItWorks() {
           <p className="mt-4 text-pretty text-lg leading-relaxed text-muted-foreground">
             Configurar FeedbackFlow es tan facil como 1, 2, 3. Empieza a recibir opiniones hoy mismo.
           </p>
-        </div>
+        </motion.div>
 
         <div className="mt-16 grid gap-8 md:grid-cols-3">
           {steps.map((step, index) => (
-            <div key={step.number} className="relative">
+            <motion.div
+              key={step.number}
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-50px" }}
+              transition={{ duration: 0.5, delay: index * 0.15 }}
+              className="relative"
+            >
               <div className="rounded-xl border border-border/50 bg-card p-8 text-center transition-all hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5">
                 <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10">
                   <step.icon className="h-7 w-7 text-primary" />
@@ -55,7 +69,7 @@ export function HowItWorks() {
                   <ArrowRight className="h-5 w-5 text-primary/40" />
                 </div>
               )}
-            </div>
+            </motion.div>
           ))}
         </div>
       </div>
