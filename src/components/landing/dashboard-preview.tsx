@@ -1,4 +1,4 @@
-import { MessageSquare, TrendingUp, Smile, Star, Users, BarChart3, LineChart, Calendar, Clock, ChevronDown, TrendingDown, Activity, CalendarDays, Meh, Frown } from "lucide-react"
+import { MessageSquare, TrendingUp, Smile, Star, Users, BarChart3, LineChart, ChevronDown, Activity } from "lucide-react"
 import { FeedbackFlowLogo } from "@/components/landing/logo"
 import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
