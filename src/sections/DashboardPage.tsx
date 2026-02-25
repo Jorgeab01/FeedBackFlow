@@ -1270,7 +1270,16 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
     setIsChangingPlan(true);
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      let { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        const { data: refreshed } = await supabase.auth.refreshSession();
+        session = refreshed.session;
+      }
+      if (!session) {
+        toast.error('Tu sesión ha expirado. Por favor, vuelve a iniciar sesión.');
+        setIsChangingPlan(false);
+        return;
+      }
 
       // Si el plan actual es gratis, enviarlo a checkout para crear su primera suscripción
       if (user.plan === 'free') {
@@ -1284,7 +1293,7 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
             successUrl: `${window.location.origin}/dashboard?session_id={CHECKOUT_SESSION_ID}`,
             cancelUrl: `${window.location.origin}/dashboard`
           },
-          headers: session ? { Authorization: `Bearer ${session.access_token}` } : undefined
+          headers: { Authorization: `Bearer ${session.access_token}` }
         });
 
         if (error || !data?.url) throw error || new Error('No URL returned');
@@ -1295,7 +1304,7 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
       // Si ya tiene plan de pago, enviarlo al portal de Stripe para cambiar su suscripción
       const { data, error } = await supabase.functions.invoke('create-portal', {
         body: { returnUrl: window.location.origin + '/dashboard' },
-        headers: session ? { Authorization: `Bearer ${session.access_token}` } : undefined
+        headers: { Authorization: `Bearer ${session.access_token}` }
       });
 
       if (error || !data?.url) throw error || new Error('No URL returned');
@@ -1313,10 +1322,19 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
   const handleManageBilling = async () => {
     setIsManagingBilling(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      let { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        const { data: refreshed } = await supabase.auth.refreshSession();
+        session = refreshed.session;
+      }
+      if (!session) {
+        toast.error('Tu sesión ha expirado. Por favor, vuelve a iniciar sesión.');
+        setIsManagingBilling(false);
+        return;
+      }
       const { data, error } = await supabase.functions.invoke('create-portal', {
         body: { returnUrl: window.location.origin + '/dashboard' },
-        headers: session ? { Authorization: `Bearer ${session.access_token}` } : undefined
+        headers: { Authorization: `Bearer ${session.access_token}` }
       });
 
       if (error || !data?.url) throw error || new Error('No URL returned');

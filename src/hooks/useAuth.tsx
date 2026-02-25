@@ -38,12 +38,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsAuthenticated(false);
     lastHydratedUserId.current = null;
 
-    // Purge tokens and potentially corrupted PKCE code verifiers that cause internal Supabase locks
+    // Solo limpiamos las claves específicas de la app (feedbackflow-auth).
+    // NO borramos las claves sb-* generales de Supabase para no corromper sesiones activas.
     try {
-      const keysToRemove = [];
+      const keysToRemove: string[] = [];
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
-        if (key && (key.includes('feedbackflow-auth') || key.startsWith('sb-'))) {
+        if (key && key.includes('feedbackflow-auth')) {
           keysToRemove.push(key);
         }
       }
@@ -169,26 +170,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       try {
-        // Ejecutar obtención nativa de sesión y confiar en el tiempo de respuesta subyacente de Supabase
+        // getSession() lee del localStorage sin hacer llamada al servidor.
+        // Podría devolver un token de una cuenta ya eliminada.
         const sessionResult = await supabase.auth.getSession();
-
         const { data: { session }, error } = sessionResult;
 
         if (error) {
           console.error("[auth] Session error during init:", error);
-          if (window.location.search.includes('code=')) {
-            window.history.replaceState(null, '', window.location.pathname);
-          }
           clearAuth();
         } else if (session?.user) {
-          await hydrateUser(session.user, session.access_token);
+          // Validación servidor: verificar que el usuario aún existe en Supabase
+          // getUser() hace una llamada real al servidor (a diferencia de getSession())
+          const { error: userError } = await supabase.auth.getUser(session.access_token);
+          if (userError) {
+            // Token inválido o usuario eliminado — limpiar TODO y forzar re-login
+            console.warn('[auth] Token inválido o usuario eliminado, limpiando sesión:', userError.message);
+            try {
+              const staleKeys: string[] = [];
+              for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && (key.startsWith('sb-') || key.includes('feedbackflow-auth'))) {
+                  staleKeys.push(key);
+                }
+              }
+              staleKeys.forEach(k => localStorage.removeItem(k));
+            } catch (e) { /* ignore */ }
+            clearAuth();
+          } else {
+            await hydrateUser(session.user, session.access_token);
+          }
         } else {
           clearAuth();
         }
       } catch (e) {
         console.error("[auth] Hard error or timeout during init:", e);
-        // If we timeout while exchanging a code, it means the code is dead and the client is locked.
-        // We MUST purge auth aggressively to break the infinite lock loop.
         clearAuth();
         if (window.location.search.includes('code=')) {
           window.history.replaceState(null, '', window.location.pathname);
