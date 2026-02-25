@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:docs.testsprite.com)",
+      "Bash(claude mcp list)",
+      "WebFetch(domain:github.com)",
+      "Bash(node --version)",
+      "Bash(npx --version)",
+      "mcp__TestSprite__testsprite_bootstrap",
+      "Bash(cd:*)"
+    ]
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "TestSprite"
+  ]
+}
