@@ -324,6 +324,8 @@ export default function App() {
               !isLoading && isAuthenticated && user ? (
                 user.businessName === 'Configurando Negocio...' ? (
                   <OnboardingPage user={user} themeProps={themeProps} />
+                ) : user.requiresPlanSelection ? (
+                  <Navigate to="/plans" replace />
                 ) : (
                   <Navigate to="/dashboard" replace />
                 )

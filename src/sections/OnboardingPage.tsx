@@ -40,6 +40,7 @@ export function OnboardingPage({ user, themeProps }: OnboardingPageProps) {
         setError(null);
 
         try {
+            // 1. Actualizar nombre del negocio en la DB
             const { error: updateError } = await supabase
                 .from('businesses')
                 .update({ name: businessName.trim() })
@@ -47,17 +48,22 @@ export function OnboardingPage({ user, themeProps }: OnboardingPageProps) {
 
             if (updateError) throw updateError;
 
-            toast.success('¡Negocio creado exitosamente!', {
-                description: 'Redirigiendo a los planes...',
+            // 2. Marcar que el usuario necesita seleccionar plan
+            // Esto garantiza que PrivateRoute lo redirija a /plans de forma fiable
+            await supabase.auth.updateUser({
+                data: { requires_plan_selection: true }
             });
 
-            // Delay state update slightly so React Router handles the navigate to /plans
-            // before the App's PrivateRoute causes a fallback navigation to /dashboard.
-            navigate('/plans', { replace: true });
+            // 3. Actualizar estado local ANTES de navegar para evitar la condición de carrera
+            // donde PrivateRoute detecta businessName='Configurando Negocio...' y redirige a /onboarding
+            updateUser({ businessName: businessName.trim(), requiresPlanSelection: true });
 
-            setTimeout(() => {
-                updateUser({ businessName: businessName.trim() });
-            }, 100);
+            toast.success('¡Negocio creado!', {
+                description: 'Elige tu plan para continuar...',
+            });
+
+            // 4. Navegar después de actualizar el estado
+            navigate('/plans', { replace: true });
 
         } catch (err) {
             console.error('Error updating business:', err);
@@ -129,7 +135,7 @@ export function OnboardingPage({ user, themeProps }: OnboardingPageProps) {
                                     <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                                 ) : (
                                     <>
-                                        Entrar al Dashboard
+                                        Elegir mi plan
                                         <ArrowRight className="ml-2 w-5 h-5" />
                                     </>
                                 )}
