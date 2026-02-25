@@ -3181,7 +3181,6 @@ function CommentsList({ comments, isLoading, onDeleteClick, getSatisfactionIcon,
     return (
       <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-0 shadow-lg dark:shadow-gray-900/50">
         <CardContent className="p-12 text-center">
-          <div className="mx-auto mb-4"><FeedbackFlowLogo className="w-12 h-12" color="#9ca3af" /></div>
           <p className="text-gray-500 dark:text-gray-400 mb-2">No hay comentarios en este período.</p>
           <p className="text-sm text-gray-400 dark:text-gray-500">Prueba ajustando los filtros de fecha.</p>
         </CardContent>

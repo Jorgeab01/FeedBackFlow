@@ -64,10 +64,19 @@ export function PlansPage({ onSelectPlan, isAuthenticated, user, themeProps }: P
           }
 
           // Si ya está autenticado y estaba en otro plan, redirigir al portal para cancelar
-          const { data: { session } } = await supabase.auth.getSession();
+          let { data: { session } } = await supabase.auth.getSession();
+          if (!session) {
+            const { data: refreshed } = await supabase.auth.refreshSession();
+            session = refreshed.session;
+          }
+          if (!session) {
+            toast.error('Tu sesión ha expirado. Por favor, vuelve a iniciar sesión.');
+            setIsLoading(false);
+            return;
+          }
           const { data, error } = await supabase.functions.invoke('create-portal', {
             body: { returnUrl: window.location.origin + '/dashboard' },
-            headers: session ? { Authorization: `Bearer ${session.access_token}` } : undefined
+            headers: { Authorization: `Bearer ${session.access_token}` }
           });
           if (error || !data?.url) {
             toast.error('Para bajar al plan Free, usa "Gestionar Suscripción" en el Dashboard.');
@@ -101,14 +110,27 @@ export function PlansPage({ onSelectPlan, isAuthenticated, user, themeProps }: P
 
       // 3. Generar sesión de pago y redirigir
       const frontendUrl = window.location.origin;
-      const { data: { session } } = await supabase.auth.getSession();
+      let { data: { session } } = await supabase.auth.getSession();
+
+      // Si no hay sesión (puede ocurrir justo tras el registro), intentar refrescar
+      if (!session) {
+        const { data: refreshed } = await supabase.auth.refreshSession();
+        session = refreshed.session;
+      }
+
+      if (!session) {
+        toast.error('Tu sesión ha expirado. Por favor, vuelve a iniciar sesión.');
+        setIsLoading(false);
+        return;
+      }
+
       const { data, error } = await supabase.functions.invoke('create-checkout', {
         body: {
           priceId,
           successUrl: `${frontendUrl}/dashboard?session_id={CHECKOUT_SESSION_ID}`,
           cancelUrl: `${frontendUrl}/plans`
         },
-        headers: session ? { Authorization: `Bearer ${session.access_token}` } : undefined
+        headers: { Authorization: `Bearer ${session.access_token}` }
       });
 
       if (error) {
