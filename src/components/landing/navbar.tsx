@@ -34,14 +34,20 @@ export function Navbar() {
         </a>
 
         <div className="hidden items-center gap-8 md:flex">
+          <a href="/#dashboard" onClick={(e) => handleSectionClick(e, "dashboard")} className="text-sm text-muted-foreground transition-colors hover:text-foreground">
+            Panel
+          </a>
+          <a href="/#qr" onClick={(e) => handleSectionClick(e, "qr")} className="text-sm text-muted-foreground transition-colors hover:text-foreground">
+            QR
+          </a>
           <a href="/#features" onClick={(e) => handleSectionClick(e, "features")} className="text-sm text-muted-foreground transition-colors hover:text-foreground">
-            Funciones
+            Características
           </a>
           <a href="/#how-it-works" onClick={(e) => handleSectionClick(e, "how-it-works")} className="text-sm text-muted-foreground transition-colors hover:text-foreground">
-            Como funciona
+            Funcionamiento
           </a>
           <a href="/#testimonials" onClick={(e) => handleSectionClick(e, "testimonials")} className="text-sm text-muted-foreground transition-colors hover:text-foreground">
-            Testimonios
+            Opiniones
           </a>
           <a href="/#pricing" onClick={(e) => handleSectionClick(e, "pricing")} className="text-sm text-muted-foreground transition-colors hover:text-foreground">
             Precios
@@ -76,14 +82,20 @@ export function Navbar() {
       {isOpen && (
         <div className="border-t border-border/50 bg-background/95 backdrop-blur-xl md:hidden">
           <div className="flex flex-col gap-4 px-6 py-6">
+            <a href="/#dashboard" onClick={(e) => handleSectionClick(e, "dashboard")} className="text-sm text-muted-foreground transition-colors hover:text-foreground">
+              Panel
+            </a>
+            <a href="/#qr" onClick={(e) => handleSectionClick(e, "qr")} className="text-sm text-muted-foreground transition-colors hover:text-foreground">
+              QR
+            </a>
             <a href="/#features" onClick={(e) => handleSectionClick(e, "features")} className="text-sm text-muted-foreground transition-colors hover:text-foreground">
-              Funciones
+              Características
             </a>
             <a href="/#how-it-works" onClick={(e) => handleSectionClick(e, "how-it-works")} className="text-sm text-muted-foreground transition-colors hover:text-foreground">
-              Como funciona
+              Funcionamiento
             </a>
             <a href="/#testimonials" onClick={(e) => handleSectionClick(e, "testimonials")} className="text-sm text-muted-foreground transition-colors hover:text-foreground">
-              Testimonios
+              Opiniones
             </a>
             <a href="/#pricing" onClick={(e) => handleSectionClick(e, "pricing")} className="text-sm text-muted-foreground transition-colors hover:text-foreground">
               Precios

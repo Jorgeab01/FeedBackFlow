@@ -37,7 +37,7 @@ export function HowItWorks() {
           transition={{ duration: 0.6 }}
           className="mx-auto max-w-2xl text-center"
         >
-          <span className="text-sm font-medium text-primary">Como Funciona</span>
+          <span className="text-sm font-medium text-primary">Funcionamiento</span>
           <h2 className="mt-3 text-balance text-3xl font-bold text-foreground md:text-4xl">
             Tres pasos simples para empezar
           </h2>

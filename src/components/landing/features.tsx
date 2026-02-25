@@ -61,7 +61,7 @@ export function Features() {
           transition={{ duration: 0.6 }}
           className="mx-auto max-w-2xl text-center"
         >
-          <span className="text-sm font-medium text-primary">Funciones</span>
+          <span className="text-sm font-medium text-primary">Características</span>
           <h2 className="mt-3 text-balance text-3xl font-bold text-foreground md:text-4xl">
             Todo lo que necesitas para mejorar tu negocio
           </h2>

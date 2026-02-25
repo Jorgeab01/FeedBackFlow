@@ -62,6 +62,22 @@ export function DashboardPreview() {
       </div>
 
       <div className="relative mx-auto max-w-6xl px-6">
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-100px" }}
+          transition={{ duration: 0.6 }}
+          className="mx-auto max-w-2xl text-center mb-16"
+        >
+          <span className="text-sm font-medium text-primary">Panel</span>
+          <h2 className="mt-3 text-balance text-3xl font-bold text-foreground md:text-4xl">
+            Toda la información que necesitas en un solo lugar
+          </h2>
+          <p className="mt-4 text-pretty text-lg leading-relaxed text-muted-foreground">
+            Visualiza tus métricas en tiempo real, analiza tendencias y descarga informes detallados con un solo clic.
+          </p>
+        </motion.div>
+
         <div className="overflow-hidden rounded-2xl border border-border/60 bg-card shadow-2xl shadow-primary/5">
           {/* Top bar */}
           <div className="flex items-center justify-between border-b border-border/60 px-6 py-4">

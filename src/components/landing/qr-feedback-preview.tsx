@@ -4,7 +4,7 @@ import { motion } from "framer-motion"
 
 export function QrFeedbackPreview() {
     return (
-        <section className="relative py-20 md:py-28">
+        <section id="qr" className="relative py-20 md:py-28">
             <div className="pointer-events-none absolute inset-0">
                 <div className="absolute bottom-0 left-1/4 h-[300px] w-[500px] rounded-full bg-primary/5 blur-[120px]" />
                 <div className="absolute top-1/4 right-1/4 h-[200px] w-[400px] rounded-full bg-accent/5 blur-[100px]" />
@@ -18,9 +18,9 @@ export function QrFeedbackPreview() {
                     transition={{ duration: 0.6 }}
                     className="mx-auto max-w-2xl text-center mb-14"
                 >
-                    <span className="text-sm font-medium text-primary">Así de fácil</span>
+                    <span className="text-sm font-medium text-primary">QR</span>
                     <h2 className="mt-3 text-balance text-3xl font-bold text-foreground md:text-4xl">
-                        Del QR al feedback en segundos
+                        Recibe opiniones en segundos
                     </h2>
                     <p className="mt-4 text-pretty text-lg leading-relaxed text-muted-foreground">
                         Tu cliente escanea el código, opina y tú recibes el feedback al instante. Sin apps, sin registros, sin fricciones.
