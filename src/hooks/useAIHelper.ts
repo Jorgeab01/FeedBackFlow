@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import { supabase } from '@/lib/supabase'
+import { supabase, supabaseAnonKey } from '@/lib/supabase'
 import type { AISummary, ChatMessage } from '@/types'
 
 interface UseAIHelperReturn {
@@ -30,9 +30,13 @@ export function useAIHelper(isPro: boolean): UseAIHelperReturn {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) throw new Error('Tu sesión ha expirado. Por favor, vuelve a iniciar sesión.')
 
+      console.log('AI Helper: Fetching summary...')
       const { data, error: fnError } = await supabase.functions.invoke('ai-helper', {
         body: { action: 'summary' },
-        headers: { Authorization: `Bearer ${session.access_token}` },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          apikey: supabaseAnonKey,
+        },
       })
 
       if (fnError) throw new Error(fnError.message)
@@ -61,6 +65,8 @@ export function useAIHelper(isPro: boolean): UseAIHelperReturn {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) throw new Error('Tu sesión ha expirado. Por favor, vuelve a iniciar sesión.')
 
+      console.log('AI Helper: Sending message...')
+
       const { data, error: fnError } = await supabase.functions.invoke('ai-helper', {
         body: {
           action: 'chat',
@@ -68,7 +74,10 @@ export function useAIHelper(isPro: boolean): UseAIHelperReturn {
           // can reconstruct the context on every call.
           messages: nextHistory,
         },
-        headers: { Authorization: `Bearer ${session.access_token}` },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          apikey: supabaseAnonKey,
+        },
       })
 
       if (fnError) throw new Error(fnError.message)

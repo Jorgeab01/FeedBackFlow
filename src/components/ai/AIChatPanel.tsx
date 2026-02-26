@@ -7,8 +7,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Sparkles, Send, Trash2, X, Bot, User } from 'lucide-react'
+import { Sparkles, Send, Trash2, X, Bot, User, HelpCircle } from 'lucide-react'
+import ReactMarkdown from 'react-markdown'
 import type { UseAIHelperReturn } from './types'
+
+const SUGGESTIONS = [
+  '¿Cómo puedo mejorar la opinión de mis clientes?',
+  '¿Cuáles son los problemas más urgentes?',
+  '¿Qué es lo que más gusta de mi negocio?',
+  'Dame 3 consejos accionables para hoy',
+]
 
 interface AIChatPanelProps {
   open: boolean
@@ -26,8 +34,8 @@ export function AIChatPanel({ open, onClose, aiHelper }: AIChatPanelProps) {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [chatHistory, isLoadingChat])
 
-  const handleSend = async () => {
-    const text = input.trim()
+  const handleSend = async (overrideText?: string) => {
+    const text = (typeof overrideText === 'string' ? overrideText : input).trim()
     if (!text || isLoadingChat) return
     setInput('')
     clearError()
@@ -43,7 +51,7 @@ export function AIChatPanel({ open, onClose, aiHelper }: AIChatPanelProps) {
 
   return (
     <Dialog open={open} onOpenChange={val => !val && onClose()}>
-      <DialogContent className="sm:max-w-xl h-[600px] flex flex-col p-0 gap-0 overflow-hidden">
+      <DialogContent showCloseButton={false} className="sm:max-w-xl h-[600px] flex flex-col p-0 gap-0 overflow-hidden">
         {/* Header */}
         <DialogHeader className="px-6 py-4 border-b border-gray-100 dark:border-gray-700 shrink-0">
           <div className="flex items-center justify-between">
@@ -106,11 +114,10 @@ export function AIChatPanel({ open, onClose, aiHelper }: AIChatPanelProps) {
               >
                 {/* Avatar */}
                 <div
-                  className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
-                    msg.role === 'user'
-                      ? 'bg-gray-200 dark:bg-gray-700'
-                      : 'bg-gradient-to-br from-violet-500 to-indigo-600'
-                  }`}
+                  className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${msg.role === 'user'
+                    ? 'bg-gray-200 dark:bg-gray-700'
+                    : 'bg-gradient-to-br from-violet-500 to-indigo-600'
+                    }`}
                 >
                   {msg.role === 'user' ? (
                     <User className="w-4 h-4 text-gray-500 dark:text-gray-400" />
@@ -121,13 +128,28 @@ export function AIChatPanel({ open, onClose, aiHelper }: AIChatPanelProps) {
 
                 {/* Bubble */}
                 <div
-                  className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
-                    msg.role === 'user'
-                      ? 'bg-violet-600 text-white rounded-tr-sm'
-                      : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-tl-sm'
-                  }`}
+                  className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${msg.role === 'user'
+                    ? 'bg-violet-600 text-white rounded-tr-sm shadow-md'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-tl-sm border border-gray-200 dark:border-gray-600 shadow-sm'
+                    }`}
                 >
-                  {msg.content}
+                  {msg.role === 'user' ? (
+                    msg.content
+                  ) : (
+                    <div className="markdown-content space-y-2">
+                      <ReactMarkdown
+                        components={{
+                          p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                          strong: ({ children }) => <strong className="font-bold text-gray-900 dark:text-white">{children}</strong>,
+                          ul: ({ children }) => <ul className="list-disc ml-4 space-y-1 my-2">{children}</ul>,
+                          li: ({ children }) => <li className="marker:text-gray-400 dark:marker:text-gray-500">{children}</li>,
+                          ol: ({ children }) => <ol className="list-decimal ml-4 space-y-1 my-2">{children}</ol>,
+                        }}
+                      >
+                        {msg.content}
+                      </ReactMarkdown>
+                    </div>
+                  )}
                 </div>
               </motion.div>
             ))}
@@ -169,10 +191,32 @@ export function AIChatPanel({ open, onClose, aiHelper }: AIChatPanelProps) {
 
         {/* Input area */}
         <div className="shrink-0 px-6 py-4 border-t border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800">
+          {/* Suggestions */}
+          {chatHistory.length === 0 && (
+            <div className="mb-4">
+              <div className="flex items-center gap-1.5 mb-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider px-1">
+                <HelpCircle className="w-3 h-3" />
+                Sugerencias
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {SUGGESTIONS.map((suggestion, i) => (
+                  <button
+                    key={i}
+                    onClick={() => handleSend(suggestion)}
+                    disabled={isLoadingChat}
+                    className="text-[11px] bg-gray-50 dark:bg-gray-700/50 hover:bg-slate-100 dark:hover:bg-slate-800 text-gray-600 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white border border-gray-200 dark:border-gray-600 hover:border-slate-300 dark:hover:border-slate-500 rounded-full px-3 py-1.5 transition-all text-left animate-in fade-in slide-in-from-bottom-2"
+                    style={{ animationDelay: `${i * 50}ms`, animationFillMode: 'both' }}
+                  >
+                    {suggestion}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="flex gap-2 items-end">
             <textarea
               className="flex-1 resize-none rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 px-4 py-3 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all min-h-[44px] max-h-32"
-              placeholder="Escribe tu pregunta... (Enter para enviar)"
+              placeholder="Escribe tu pregunta..."
               rows={1}
               value={input}
               onChange={e => setInput(e.target.value)}
@@ -180,9 +224,9 @@ export function AIChatPanel({ open, onClose, aiHelper }: AIChatPanelProps) {
               disabled={isLoadingChat}
             />
             <Button
-              onClick={handleSend}
+              onClick={() => handleSend()}
               disabled={!input.trim() || isLoadingChat}
-              className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white h-11 w-11 p-0 rounded-xl shrink-0"
+              className="bg-slate-900 dark:bg-slate-100 hover:bg-slate-800 dark:hover:bg-white text-white dark:text-slate-900 h-11 w-11 p-0 rounded-xl shrink-0"
             >
               <Send className="w-4 h-4" />
             </Button>

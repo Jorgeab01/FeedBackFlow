@@ -1,5 +1,5 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.97.0'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -31,7 +31,7 @@ const COMMENTS_WINDOW_DAYS = 30 // only use recent comments for cache hash
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, Authorization',
 }
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
@@ -91,10 +91,19 @@ serve(async (req: Request) => {
 
   try {
     const openAiKey = Deno.env.get('OPENAI_API_KEY')
-    if (!openAiKey) throw new Error('OPENAI_API_KEY not configured')
+    if (!openAiKey) {
+      console.error('Missing OPENAI_API_KEY')
+      throw new Error('OPENAI_API_KEY not configured')
+    }
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')
+
+    if (!supabaseUrl || !supabaseServiceKey || !supabaseAnonKey) {
+      console.error('Missing Supabase environment variables')
+      throw new Error('Supabase configuration is incomplete')
+    }
 
     // Authenticate the user via JWT from the Authorization header
     const authHeader = req.headers.get('Authorization')
@@ -105,30 +114,44 @@ serve(async (req: Request) => {
       })
     }
 
-    // Use a user-scoped client for RLS, and a service client for rate-limiting writes
-    const userClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
+    // Initialize Supabase client with the user's token
+    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
     })
-    const serviceClient = createClient(supabaseUrl, supabaseServiceKey)
 
-    // Resolve the authenticated user
+    // Resolve the authenticated user relying on global headers (cleanest approach for recent SDKs)
     const { data: { user }, error: authError } = await userClient.auth.getUser()
+
     if (authError || !user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      console.error('Auth verification failed:', authError?.message || 'No user returned')
+      return new Response(JSON.stringify({
+        error: 'Sesión inválida o expirada',
+        details: authError?.message || 'User not found'
+      }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
+
+    const serviceClient = createClient(supabaseUrl, supabaseServiceKey)
 
     // Fetch the business owned by this user
     const { data: business, error: bizError } = await userClient
       .from('businesses')
       .select('id, name, plan')
       .eq('owner_id', user.id)
-      .single()
+      .maybeSingle()
 
-    if (bizError || !business) {
-      return new Response(JSON.stringify({ error: 'Business not found' }), {
+    if (bizError) {
+      console.error('Business query error:', bizError)
+      return new Response(JSON.stringify({ error: 'Error al verificar el negocio' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    if (!business) {
+      return new Response(JSON.stringify({ error: 'Debes configurar un negocio para usar la IA' }), {
         status: 404,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -136,23 +159,25 @@ serve(async (req: Request) => {
 
     // Enforce Pro plan
     if (business.plan !== 'pro') {
-      return new Response(JSON.stringify({ error: 'AI Helper requires a Pro plan' }), {
+      return new Response(JSON.stringify({ error: 'El Asistente IA requiere un plan Pro' }), {
         status: 403,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
     // ── Rate limiting ──────────────────────────────────────────────────────────
-    // Count calls made today for this business using the ai_cache table's
-    // created_at timestamps. We count all rows created in the current UTC day.
     const todayStart = new Date()
     todayStart.setUTCHours(0, 0, 0, 0)
 
-    const { count: callsToday } = await serviceClient
+    const { count: callsToday, error: rateError } = await serviceClient
       .from('ai_cache')
       .select('id', { count: 'exact', head: true })
       .eq('business_id', business.id)
       .gte('created_at', todayStart.toISOString())
+
+    if (rateError) {
+      console.error('Rate limit query error:', rateError)
+    }
 
     if ((callsToday ?? 0) >= RATE_LIMIT_PER_DAY) {
       return new Response(
@@ -165,11 +190,20 @@ serve(async (req: Request) => {
     }
 
     // ── Parse request body ─────────────────────────────────────────────────────
-    const body: RequestBody = await req.json()
+    let body: RequestBody
+    try {
+      body = await req.json()
+    } catch {
+      return new Response(JSON.stringify({ error: 'Solicitud inválida (JSON mal formado)' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
     const { action, messages } = body
 
     if (action !== 'summary' && action !== 'chat') {
-      return new Response(JSON.stringify({ error: 'Invalid action' }), {
+      return new Response(JSON.stringify({ error: 'Acción no válida' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -189,7 +223,8 @@ serve(async (req: Request) => {
       .limit(500)
 
     if (commentsError) {
-      return new Response(JSON.stringify({ error: 'Failed to fetch comments' }), {
+      console.error('Comments fetch error:', commentsError)
+      return new Response(JSON.stringify({ error: 'Error al obtener comentarios' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -197,7 +232,7 @@ serve(async (req: Request) => {
 
     if (!comments || comments.length === 0) {
       return new Response(
-        JSON.stringify({ error: 'No hay comentarios suficientes para analizar.' }),
+        JSON.stringify({ error: 'No hay comentarios suficientes en los últimos 30 días para realizar un análisis.' }),
         {
           status: 422,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -216,7 +251,7 @@ serve(async (req: Request) => {
       const commentsHash = await sha256(hashInput)
 
       // Check for valid cached response
-      const { data: cached } = await userClient
+      const { data: cached, error: cacheReadError } = await serviceClient
         .from('ai_cache')
         .select('summary, top_issues, top_strengths, created_at')
         .eq('business_id', business.id)
@@ -225,6 +260,10 @@ serve(async (req: Request) => {
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle()
+
+      if (cacheReadError) {
+        console.error('Cache read error:', cacheReadError)
+      }
 
       if (cached) {
         return new Response(
@@ -260,10 +299,16 @@ serve(async (req: Request) => {
       })
 
       if (!openAiResponse.ok) {
-        const err = await openAiResponse.text()
-        console.error('OpenAI error:', err)
+        const errText = await openAiResponse.text()
+        console.error('OpenAI error:', errText)
+
+        let errorMessage = 'El servicio de IA no está disponible en este momento.'
+        if (errText.includes('insufficient_quota')) {
+          errorMessage = 'Se ha agotado la cuota de OpenAI. Por favor, revisa tu plan de facturación en OpenAI.'
+        }
+
         return new Response(
-          JSON.stringify({ error: 'El servicio de IA no está disponible. Inténtalo más tarde.' }),
+          JSON.stringify({ error: errorMessage }),
           {
             status: 502,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -272,13 +317,22 @@ serve(async (req: Request) => {
       }
 
       const openAiData = await openAiResponse.json()
-      const parsed = JSON.parse(openAiData.choices[0].message.content)
+      let parsed
+      try {
+        parsed = JSON.parse(openAiData.choices[0].message.content)
+      } catch (err) {
+        console.error('Failed to parse OpenAI JSON response:', err)
+        return new Response(JSON.stringify({ error: 'Error procesando la respuesta de la IA' }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
 
       const now = new Date()
       const expiresAt = new Date(now.getTime() + CACHE_TTL_HOURS * 60 * 60 * 1000)
 
-      // Save to cache (use service client to bypass RLS on insert)
-      await serviceClient.from('ai_cache').insert({
+      // Save to cache
+      const { error: cacheInsertError } = await serviceClient.from('ai_cache').insert({
         business_id: business.id,
         comments_hash: commentsHash,
         summary: parsed.summary ?? '',
@@ -286,6 +340,10 @@ serve(async (req: Request) => {
         top_strengths: parsed.topStrengths ?? [],
         expires_at: expiresAt.toISOString(),
       })
+
+      if (cacheInsertError) {
+        console.error('Cache insertion error:', cacheInsertError)
+      }
 
       return new Response(
         JSON.stringify({
@@ -300,10 +358,9 @@ serve(async (req: Request) => {
     }
 
     // ── Handle chat action ─────────────────────────────────────────────────────
-    // The frontend sends the full conversation history; we prepend the system prompt.
     if (action === 'chat') {
       if (!messages || messages.length === 0) {
-        return new Response(JSON.stringify({ error: 'No messages provided' }), {
+        return new Response(JSON.stringify({ error: 'No se enviaron mensajes' }), {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         })
@@ -311,7 +368,6 @@ serve(async (req: Request) => {
 
       const openAiMessages: ChatMessage[] = [
         { role: 'system', content: systemPrompt },
-        // Only include user/assistant turns (strip any stale system messages from client)
         ...messages.filter(m => m.role === 'user' || m.role === 'assistant'),
       ]
 
@@ -329,10 +385,16 @@ serve(async (req: Request) => {
       })
 
       if (!openAiResponse.ok) {
-        const err = await openAiResponse.text()
-        console.error('OpenAI error:', err)
+        const errText = await openAiResponse.text()
+        console.error('OpenAI error:', errText)
+
+        let errorMessage = 'El servicio de IA no está disponible en este momento.'
+        if (errText.includes('insufficient_quota')) {
+          errorMessage = 'Se ha agotado la cuota de OpenAI. Por favor, revisa tu plan de facturación en OpenAI.'
+        }
+
         return new Response(
-          JSON.stringify({ error: 'El servicio de IA no está disponible. Inténtalo más tarde.' }),
+          JSON.stringify({ error: errorMessage }),
           {
             status: 502,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -340,7 +402,7 @@ serve(async (req: Request) => {
         )
       }
 
-      // Log the chat call using a lightweight cache row (no real content stored)
+      // Log the chat call
       const now = new Date()
       await serviceClient.from('ai_cache').insert({
         business_id: business.id,
@@ -348,7 +410,7 @@ serve(async (req: Request) => {
         summary: '[chat]',
         top_issues: [],
         top_strengths: [],
-        expires_at: new Date(now.getTime() + 1000).toISOString(), // expires immediately
+        expires_at: new Date(now.getTime() + 1000 * 60).toISOString(),
       })
 
       const openAiData = await openAiResponse.json()
@@ -363,7 +425,7 @@ serve(async (req: Request) => {
   } catch (err) {
     console.error('Unexpected error:', err)
     return new Response(
-      JSON.stringify({ error: 'Error interno del servidor' }),
+      JSON.stringify({ error: 'Error interno del servidor', details: err instanceof Error ? err.message : String(err) }),
       {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
