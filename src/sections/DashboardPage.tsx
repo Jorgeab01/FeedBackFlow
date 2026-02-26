@@ -56,6 +56,8 @@ import { QRCodeSVG } from 'qrcode.react';
 import type { User } from '@/types';
 import { useComments } from '@/hooks/useComments';
 import { useBusiness } from '@/hooks/useBusiness';
+import { useAIHelper } from '@/hooks/useAIHelper';
+import { AIInsightWidget } from '@/components/ai/AIInsightWidget';
 import { toast } from 'sonner';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import type { useTheme } from '@/hooks/useTheme';
@@ -232,6 +234,8 @@ function useMonthlyUsage(businessId: string, plan: PlanType) {
 export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps) {
   const { comments, isLoading, deleteComment, getStats } = useComments(user.businessId);
   const { business, getBusinessUrl } = useBusiness(user.businessId);
+  // Must be called before any early returns to satisfy rules-of-hooks
+  const aiHelper = useAIHelper(user.plan === 'pro');
 
   if (!user) {
     return (
@@ -2013,6 +2017,16 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
             </Card>
           </motion.div>
         )}
+
+        {/* AI Insights - Solo Pro */}
+        <AIInsightWidget
+          isPro={isPro}
+          aiHelper={aiHelper}
+          onUpgradeClick={() => {
+            setShowSettings(true);
+            setSettingsTab('plan');
+          }}
+        />
 
         {/* QR Code Section */}
         <motion.div

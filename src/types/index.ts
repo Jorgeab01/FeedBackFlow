@@ -53,3 +53,16 @@ export interface RegistrationData {
   password: string;
   selectedPlan: PlanType;
 }
+
+export interface AISummary {
+  summary: string;
+  topIssues: string[];
+  topStrengths: string[];
+  generatedAt: string;
+  fromCache: boolean;
+}
+
+export interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
