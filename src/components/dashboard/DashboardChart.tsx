@@ -16,7 +16,7 @@ import {
     LineChart,
     Lock
 } from 'lucide-react';
-import { CalendarComponent } from './CalendarComponent';
+import { CalendarComponent } from '@/components/dashboard/CalendarComponent';
 import { format, parseISO, eachDayOfInterval } from 'date-fns';
 import { es } from 'date-fns/locale';
 

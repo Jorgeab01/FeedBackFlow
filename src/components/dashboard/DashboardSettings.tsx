@@ -464,7 +464,7 @@ export function DashboardSettings({
 
                             <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
                                 ¿Tienes problemas técnicos, preguntas sobre tu facturación o necesitas ayuda con la configuración?
-                                Envía un correo a soporte@feedbackflow.com
+                                Envía un correo a soporte@feedback-flow.com
                             </p>
 
                             <div className="flex flex-col gap-2">
@@ -472,7 +472,7 @@ export function DashboardSettings({
                                     className="w-full gap-2 bg-blue-600 hover:bg-blue-700"
                                     onClick={() => {
                                         const subject = encodeURIComponent(`Soporte - ${user.businessName}`);
-                                        window.open(`https://mail.google.com/mail/?view=cm&fs=1&to=soporte@feedbackflow.com&su=${subject}`, '_blank');
+                                        window.open(`https://mail.google.com/mail/?view=cm&fs=1&to=soporte@feedback-flow.com&su=${subject}`, '_blank');
                                     }}
                                 >
                                     <Mail className="w-4 h-4" />
@@ -483,7 +483,7 @@ export function DashboardSettings({
                                     variant="outline"
                                     className="w-full gap-2"
                                     onClick={() => {
-                                        navigator.clipboard.writeText('soporte@feedbackflow.com');
+                                        navigator.clipboard.writeText('soporte@feedback-flow.com');
                                         toast.success('Correo copiado', {
                                             description: 'La dirección de soporte se ha copiado al portapapeles.'
                                         });

@@ -9,7 +9,7 @@ import {
     Calendar, X, ChevronDown, FileDown, Lock,
     Smile, Meh, Frown, MessageSquareDashed, Trash2
 } from 'lucide-react';
-import { CalendarComponent } from './CalendarComponent';
+import { CalendarComponent } from '@/components/dashboard/CalendarComponent';
 
 interface DashboardCommentsProps {
     filteredComments: any[];
