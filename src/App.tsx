@@ -105,7 +105,7 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
   if (isLoading && !hasShownContent.current) {
     return <LoadingScreen />;
   }
-
+  //
   // 2️⃣ Si autenticado pero user es null (y no hemos mostrado contenido), seguir esperando
   if (isAuthenticated && !user && !hasShownContent.current) {
     console.warn('[PrivateRoute] ⚠️ Authenticated but user is null, waiting...');
