@@ -4,8 +4,8 @@ import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 
 export function DashboardPreview() {
-  const [showAdvancedStats, setShowAdvancedStats] = useState(true)
-  const [showAIHelper, setShowAIHelper] = useState(true)
+  const [showAdvancedStats, setShowAdvancedStats] = useState(false)
+  const [showAIHelper, setShowAIHelper] = useState(false)
 
   // Datos de ejemplo - evolución de mala a buena
   const stats = {
@@ -142,7 +142,12 @@ export function DashboardPreview() {
                       </h3>
                     </div>
                   </div>
-                  <ChevronDown className={`w-5 h-5 text-muted-foreground transition-transform duration-300 ${showAdvancedStats ? 'rotate-180' : ''}`} />
+                  <motion.div
+                    animate={!showAdvancedStats ? { y: [0, 4, 0] } : { y: 0 }}
+                    transition={{ repeat: !showAdvancedStats ? Infinity : 0, duration: 1.5, ease: "easeInOut" }}
+                  >
+                    <ChevronDown className={`w-5 h-5 text-muted-foreground transition-transform duration-300 ${showAdvancedStats ? 'rotate-180' : ''}`} />
+                  </motion.div>
                 </div>
 
                 <AnimatePresence>
@@ -413,7 +418,12 @@ export function DashboardPreview() {
                       </p>
                     </div>
                   </div>
-                  <ChevronDown className={`w-5 h-5 text-muted-foreground transition-transform duration-300 ${showAIHelper ? 'rotate-180' : ''}`} />
+                  <motion.div
+                    animate={!showAIHelper ? { y: [0, 4, 0] } : { y: 0 }}
+                    transition={{ repeat: !showAIHelper ? Infinity : 0, duration: 1.5, ease: "easeInOut" }}
+                  >
+                    <ChevronDown className={`w-5 h-5 text-muted-foreground transition-transform duration-300 ${showAIHelper ? 'rotate-180' : ''}`} />
+                  </motion.div>
                 </div>
 
                 <AnimatePresence>
