@@ -8,6 +8,7 @@ import { useTheme } from '@/hooks/useTheme';
 import { toast } from 'sonner';
 import { AIInsightWidget } from '@/components/ai/AIInsightWidget';
 import { Badge } from '@/components/ui/badge';
+import html2canvas from 'html2canvas';
 import {
   format,
   subDays,
@@ -532,79 +533,27 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
     toast.success('Enlace copiado');
   }, [getBusinessUrl]);
 
-  const handleDownloadQR = useCallback(() => {
+  const handleDownloadQR = useCallback(async () => {
     if (!qrRef.current) return;
 
-    const container = qrRef.current;
-    const rect = container.getBoundingClientRect();
-    const scale = 3;
-    const canvas = document.createElement('canvas');
-    canvas.width = rect.width * scale;
-    canvas.height = rect.height * scale;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    ctx.scale(scale, scale);
-    ctx.fillStyle = qrBgColor;
-    ctx.roundRect(0, 0, rect.width, rect.height, 16);
-    ctx.fill();
-
-    const cs = 28;
-    const cm = 16;
-    const bw = 4;
-    ctx.strokeStyle = qrFgColor;
-    ctx.lineWidth = bw;
-    ctx.beginPath(); ctx.moveTo(cm + cs, cm); ctx.lineTo(cm, cm); ctx.lineTo(cm, cm + cs); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(rect.width - cm - cs, cm); ctx.lineTo(rect.width - cm, cm); ctx.lineTo(rect.width - cm, cm + cs); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(cm, rect.height - cm - cs); ctx.lineTo(cm, rect.height - cm); ctx.lineTo(cm + cs, rect.height - cm); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(rect.width - cm - cs, rect.height - cm); ctx.lineTo(rect.width - cm, rect.height - cm); ctx.lineTo(rect.width - cm, rect.height - cm - cs); ctx.stroke();
-
-    const svg = container.querySelector('svg');
-    if (!svg) return;
-    const svgData = new XMLSerializer().serializeToString(svg);
-    const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
-    const url = URL.createObjectURL(svgBlob);
-    const img = new Image();
-    img.onload = () => {
-      const svgEl = container.querySelector('svg')!;
-      const svgRect = svgEl.getBoundingClientRect();
-      const offsetX = svgRect.left - rect.left;
-      const offsetY = svgRect.top - rect.top;
-      ctx.drawImage(img, offsetX, offsetY, svgRect.width, svgRect.height);
-      URL.revokeObjectURL(url);
-
-      const iconSize = 40;
-      const iconX = rect.width / 2 - iconSize / 2;
-      const iconY = offsetY + svgRect.height / 2 - iconSize / 2;
-      ctx.fillStyle = qrBgColor;
-      ctx.beginPath(); ctx.roundRect(iconX - 4, iconY - 4, iconSize + 8, iconSize + 8, 8); ctx.fill();
-      ctx.fillStyle = qrFgColor;
-      ctx.beginPath(); ctx.roundRect(iconX, iconY, iconSize, iconSize, 6); ctx.fill();
-
-      const textY = offsetY + svgRect.height + 16;
-      ctx.fillStyle = qrFgColor;
-      ctx.font = 'bold 14px system-ui, sans-serif';
-      ctx.textAlign = 'center';
-      if (showBusinessName && business?.name) {
-        ctx.fillText(business.name, rect.width / 2, textY);
-      }
-      const phrase = selectedPhrase;
-      if (phrase) {
-        ctx.globalAlpha = 0.8;
-        ctx.font = '11px system-ui, sans-serif';
-        ctx.fillText(phrase, rect.width / 2, textY + (showBusinessName && business?.name ? 18 : 0));
-        ctx.globalAlpha = 1;
-      }
+    try {
+      const canvas = await html2canvas(qrRef.current, {
+        scale: 3, // Higher resolution
+        backgroundColor: null, // Transparent background if needed
+        useCORS: true // Allow loading external assets if any
+      });
 
       const pngFile = canvas.toDataURL('image/png');
       const downloadLink = document.createElement('a');
       downloadLink.download = `qr-${business?.name || 'negocio'}.png`;
       downloadLink.href = pngFile;
       downloadLink.click();
-      toast.success('QR descargado');
-    };
-    img.src = url;
-  }, [business?.name, qrBgColor, qrFgColor, showBusinessName, selectedPhrase]);
+      toast.success('QR descargado correctamente');
+    } catch (error) {
+      console.error('Error al generar el QR:', error);
+      toast.error('Error al descargar el QR');
+    }
+  }, [business?.name]);
 
   const handleExportExcel = useCallback(() => {
     if (!canExport) {
