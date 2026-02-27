@@ -2936,15 +2936,32 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                   Envía un correo a soporte@feedbackflow.com
                 </p>
 
-                <Button
-                  className="w-full gap-2 bg-blue-600 hover:bg-blue-700"
-                  onClick={() => {
-                    window.open(`mailto:soporte@feedbackflow.com?subject=Soporte - ${user.businessName}`, '_blank');
-                  }}
-                >
-                  <Mail className="w-4 h-4" />
-                  Contactar soporte
-                </Button>
+                <div className="flex flex-col gap-2">
+                  <Button
+                    className="w-full gap-2 bg-blue-600 hover:bg-blue-700"
+                    onClick={() => {
+                      const subject = encodeURIComponent(`Soporte - ${user.businessName}`);
+                      window.open(`https://mail.google.com/mail/?view=cm&fs=1&to=soporte@feedbackflow.com&su=${subject}`, '_blank');
+                    }}
+                  >
+                    <Mail className="w-4 h-4" />
+                    Abrir en Gmail
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    className="w-full gap-2"
+                    onClick={() => {
+                      navigator.clipboard.writeText('soporte@feedbackflow.com');
+                      toast.success('Correo copiado', {
+                        description: 'La dirección de soporte se ha copiado al portapapeles.'
+                      });
+                    }}
+                  >
+                    <Copy className="w-4 h-4" />
+                    Copiar correo
+                  </Button>
+                </div>
               </div>
             </TabsContent>
 
