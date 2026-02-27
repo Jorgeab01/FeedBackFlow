@@ -60,6 +60,8 @@ export interface AISummary {
   topStrengths: string[];
   generatedAt: string;
   fromCache: boolean;
+  isStale?: boolean;
+  limitReached?: boolean;
 }
 
 export interface ChatMessage {

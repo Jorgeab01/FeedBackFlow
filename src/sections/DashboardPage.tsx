@@ -12,6 +12,7 @@ import {
   LogOut,
   QrCode,
   // MessageSquare removed, using FeedbackFlowLogo instead
+  MessageSquareDashed,
   TrendingUp,
   Users,
   Smile,
@@ -1678,7 +1679,7 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                         </div>
                       </div>
 
-                      {advancedChartData && (
+                      {advancedChartData ? (
                         <>
                           {/* KPIs adicionales */}
                           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 py-6 border-b border-gray-100 dark:border-gray-700">
@@ -1972,6 +1973,18 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                             </div>
                           </div>
                         </>
+                      ) : (
+                        <div className="py-16 px-6 text-center border-t border-gray-100 dark:border-gray-700">
+                          <div className="mx-auto w-16 h-16 bg-purple-50 dark:bg-purple-900/20 rounded-2xl flex items-center justify-center mb-4 border border-purple-100 dark:border-purple-800/30">
+                            <BarChart3 className="w-8 h-8 text-purple-600 dark:text-purple-400 opacity-80" />
+                          </div>
+                          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                            Aún no hay suficientes datos
+                          </h3>
+                          <p className="text-gray-500 dark:text-gray-400 max-w-sm mx-auto">
+                            Necesitas recibir comentarios en este período para generar las estadísticas avanzadas. Prueba ampliando el rango de fechas.
+                          </p>
+                        </div>
                       )}
                     </CardContent>
                   </motion.div>
@@ -2008,7 +2021,7 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                       setShowSettings(true);
                       setSettingsTab('plan');
                     }}
-                    className="bg-purple-600 hover:bg-purple-700"
+                    className="bg-purple-600 hover:bg-purple-700 text-white"
                   >
                     Actualizar a Pro
                   </Button>
@@ -3212,9 +3225,16 @@ function CommentsList({ comments, isLoading, onDeleteClick, getSatisfactionIcon,
   if (comments.length === 0) {
     return (
       <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-0 shadow-lg dark:shadow-gray-900/50">
-        <CardContent className="p-12 text-center">
-          <p className="text-gray-500 dark:text-gray-400 mb-2">No hay comentarios en este período.</p>
-          <p className="text-sm text-gray-400 dark:text-gray-500">Prueba ajustando los filtros de fecha.</p>
+        <CardContent className="py-16 px-6 text-center">
+          <div className="mx-auto w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-2xl flex items-center justify-center mb-4 border border-gray-200 dark:border-gray-700">
+            <MessageSquareDashed className="w-8 h-8 text-gray-400 dark:text-gray-500 opacity-80" />
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+            No hay comentarios en este período
+          </h3>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            Prueba ajustando los filtros de fecha para ver comentarios anteriores.
+          </p>
         </CardContent>
       </Card>
     );

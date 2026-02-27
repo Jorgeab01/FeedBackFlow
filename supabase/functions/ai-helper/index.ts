@@ -1,16 +1,11 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.97.0'
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// --- Types ---
 
 interface ChatMessage {
   role: 'user' | 'assistant' | 'system'
   content: string
-}
-
-interface RequestBody {
-  action: 'summary' | 'chat'
-  messages?: ChatMessage[]   // for 'chat' action: full history from the client
 }
 
 interface Comment {
@@ -19,22 +14,38 @@ interface Comment {
   created_at: string
 }
 
-// ─── Constants ────────────────────────────────────────────────────────────────
+// --- Constants ---
 
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions'
 const MODEL = 'gpt-4o-mini'
 const CACHE_TTL_HOURS = 24
-const RATE_LIMIT_PER_DAY = 20  // max AI calls per business per day
-const COMMENTS_WINDOW_DAYS = 30 // only use recent comments for cache hash
+const LIMIT_SUMMARY = 50
+const LIMIT_CHAT = 50
+const COMMENTS_WINDOW_DAYS = 30
 
-// ─── CORS headers ─────────────────────────────────────────────────────────────
+const ALLOWED_ORIGINS = [
+  'https://feedback-flow.com',
+  'https://www.feedback-flow.com',
+]
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, Authorization',
+// --- Helpers ---
+
+function getCorsHeaders(req: Request) {
+  const origin = req.headers.get('Origin') || ''
+  const isAllowed = ALLOWED_ORIGINS.includes(origin)
+    || origin.startsWith('http://localhost:')
+  return {
+    'Access-Control-Allow-Origin': isAllowed ? origin : ALLOWED_ORIGINS[0],
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  }
 }
 
-// ─── Utilities ────────────────────────────────────────────────────────────────
+function jsonResponse(body: Record<string, unknown>, status: number, cors: Record<string, string>) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...cors, 'Content-Type': 'application/json' },
+  })
+}
 
 async function sha256(text: string): Promise<string> {
   const msgBuffer = new TextEncoder().encode(text)
@@ -43,175 +54,172 @@ async function sha256(text: string): Promise<string> {
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
 }
 
-function buildSystemPrompt(comments: Comment[], businessName: string): string {
+function buildSystemPrompt(comments: Comment[], businessName: string, lastSummary?: string): string {
   const commentLines = comments
-    .map(c => `[${c.satisfaction.toUpperCase()}] ${c.text}`)
+    .map((c: Comment) => '[' + c.satisfaction.toUpperCase() + '] ' + c.text)
     .join('\n')
 
-  return `Eres un asistente de análisis de feedback para el negocio "${businessName}".
-Tienes acceso a los siguientes comentarios recientes de clientes (últimos ${COMMENTS_WINDOW_DAYS} días):
+  let prompt = "Eres un asistente de análisis de feedback para el negocio '" + businessName + "'.\n"
 
---- COMENTARIOS ---
-${commentLines}
---- FIN COMENTARIOS ---
+  if (lastSummary) {
+    prompt += "\nRESUMEN EJECUTIVO PREVIO (Contexto histórico):\n" + lastSummary + "\n"
+  }
 
-Reglas estrictas:
-1. Solo responde basándote en los comentarios anteriores. Si algo no aparece en ellos, di explícitamente que no tienes datos suficientes.
-2. No inventes datos, porcentajes ni tendencias que no puedas deducir directamente de los comentarios.
-3. Responde siempre en español.
-4. Sé conciso y accionable.`
+  prompt += "\nCOMENTARIOS RECIENTES ANALIZADOS:\n" + commentLines + "\n"
+
+  prompt += "\nReglas:\n1. Solo responde basándote en los comentarios y el resumen proporcionado.\n2. No inventes datos.\n3. Responde en español.\n4. Sé conciso y profesional."
+
+  return prompt
 }
 
 function buildSummaryPrompt(): ChatMessage[] {
   return [
     {
       role: 'user',
-      content: `Analiza los comentarios y proporciona:
-1. Un resumen ejecutivo (2-3 frases) del estado general del feedback.
-2. Top 3 problemas más frecuentes o críticos (formato: lista corta).
-3. Top 3 fortalezas o aspectos más valorados (formato: lista corta).
+      content: `Analiza los comentarios y genera un JSON con EXACTAMENTE esta estructura (sin ninguna key adicional):
 
-Responde en formato JSON estricto:
 {
-  "summary": "...",
-  "topIssues": ["...", "...", "..."],
-  "topStrengths": ["...", "...", "..."]
-}`,
+  "summary": "Resumen ejecutivo de 2-3 frases sobre el estado general del feedback del negocio.",
+  "topIssues": ["Problema 1", "Problema 2", "Problema 3"],
+  "topStrengths": ["Fortaleza 1", "Fortaleza 2", "Fortaleza 3"]
+}
+
+Reglas:
+- "summary" DEBE ser un string no vacío con el resumen ejecutivo.
+- "topIssues" DEBE ser un array de entre 1 y 5 strings con los principales problemas (ordénalos de mayor a menor importancia).
+- "topStrengths" DEBE ser un array de entre 1 y 5 strings con las principales fortalezas (ordénalas de mayor a menor importancia).
+- Si no hay suficientes problemas o fortalezas, indica "No se identificaron más problemas/fortalezas significativas".
+- Responde SOLO con el JSON, sin texto adicional.`,
     },
   ]
 }
 
-// ─── Main handler ─────────────────────────────────────────────────────────────
+/** Validates that parsed OpenAI response has the expected shape */
+function validateSummaryResponse(parsed: unknown): { summary: string; topIssues: string[]; topStrengths: string[] } {
+  if (!parsed || typeof parsed !== 'object') {
+    throw new Error('La respuesta de la IA no es un objeto válido')
+  }
+
+  const obj = parsed as Record<string, unknown>
+
+  const summary = typeof obj.summary === 'string' && obj.summary.trim()
+    ? obj.summary.trim()
+    : (typeof obj.resumen_ejecutivo === 'string' ? obj.resumen_ejecutivo.trim() : '')
+
+  if (!summary) {
+    throw new Error('La IA no generó un resumen válido')
+  }
+
+  const topIssues = Array.isArray(obj.topIssues) ? obj.topIssues.filter((s): s is string => typeof s === 'string' && s.trim().length > 0) : []
+  const topStrengths = Array.isArray(obj.topStrengths) ? obj.topStrengths.filter((s): s is string => typeof s === 'string' && s.trim().length > 0) : []
+
+  if (topIssues.length === 0 && topStrengths.length === 0) {
+    throw new Error('La IA no generó problemas ni fortalezas válidos')
+  }
+
+  return { summary, topIssues, topStrengths }
+}
+
+/** Checks if a cached DB row has valid data worth returning */
+function isCacheValid(row: { summary: unknown; top_issues: unknown; top_strengths: unknown }): boolean {
+  const hasSummary = typeof row.summary === 'string' && row.summary.trim().length > 0
+  const hasIssues = Array.isArray(row.top_issues) && row.top_issues.some((s: unknown) => typeof s === 'string' && s.trim().length > 0)
+  const hasStrengths = Array.isArray(row.top_strengths) && row.top_strengths.some((s: unknown) => typeof s === 'string' && s.trim().length > 0)
+  return hasSummary && hasIssues && hasStrengths
+}
+
+// --- Main handler ---
 
 serve(async (req: Request) => {
-  // Handle CORS preflight
+  const cors = getCorsHeaders(req)
+
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response('ok', { headers: cors })
   }
 
   try {
     const openAiKey = Deno.env.get('OPENAI_API_KEY')
-    if (!openAiKey) {
-      console.error('Missing OPENAI_API_KEY')
-      throw new Error('OPENAI_API_KEY not configured')
-    }
-
     const supabaseUrl = Deno.env.get('SUPABASE_URL')
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')
 
-    if (!supabaseUrl || !supabaseServiceKey || !supabaseAnonKey) {
-      console.error('Missing Supabase environment variables')
-      throw new Error('Supabase configuration is incomplete')
+    if (!openAiKey || !supabaseUrl || !supabaseServiceKey || !supabaseAnonKey) {
+      throw new Error('Missing environment variables')
     }
 
-    // Authenticate the user via JWT from the Authorization header
+    if (req.method !== 'POST') {
+      return jsonResponse({ error: 'Usa POST para esta función' }, 405, cors)
+    }
+
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'Missing authorization header' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
+      return jsonResponse({ error: 'Falta cabecera de autorización' }, 401, cors)
     }
 
-    // Initialize Supabase client with the user's token
+    // --- Auth ---
     const userClient = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
     })
 
-    // Resolve the authenticated user relying on global headers (cleanest approach for recent SDKs)
     const { data: { user }, error: authError } = await userClient.auth.getUser()
 
     if (authError || !user) {
-      console.error('Auth verification failed:', authError?.message || 'No user returned')
-      return new Response(JSON.stringify({
-        error: 'Sesión inválida o expirada',
-        details: authError?.message || 'User not found'
-      }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
+      return jsonResponse({
+        error: 'Sesión inválida',
+        details: authError?.message || 'No se pudo obtener el usuario',
+      }, 401, cors)
     }
 
     const serviceClient = createClient(supabaseUrl, supabaseServiceKey)
 
-    // Fetch the business owned by this user
+    // --- Business ---
     const { data: business, error: bizError } = await userClient
       .from('businesses')
       .select('id, name, plan')
       .eq('owner_id', user.id)
       .maybeSingle()
 
-    if (bizError) {
-      console.error('Business query error:', bizError)
-      return new Response(JSON.stringify({ error: 'Error al verificar el negocio' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
+    if (bizError || !business) {
+      return jsonResponse({ error: 'No se encontró el negocio' }, 404, cors)
     }
 
-    if (!business) {
-      return new Response(JSON.stringify({ error: 'Debes configurar un negocio para usar la IA' }), {
-        status: 404,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-
-    // Enforce Pro plan
     if (business.plan !== 'pro') {
-      return new Response(JSON.stringify({ error: 'El Asistente IA requiere un plan Pro' }), {
-        status: 403,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
+      return jsonResponse({ error: 'Requiere plan Pro' }, 403, cors)
     }
 
-    // ── Rate limiting ──────────────────────────────────────────────────────────
+    // --- Parse body & validate action ---
+    const body = await req.json()
+    const { action, messages, onlyCache } = body
+
+    if (action !== 'summary' && action !== 'chat') {
+      return jsonResponse({ error: 'Acción no válida. Usa "summary" o "chat".' }, 400, cors)
+    }
+
     const todayStart = new Date()
     todayStart.setUTCHours(0, 0, 0, 0)
 
-    const { count: callsToday, error: rateError } = await serviceClient
-      .from('ai_cache')
-      .select('id', { count: 'exact', head: true })
-      .eq('business_id', business.id)
-      .gte('created_at', todayStart.toISOString())
+    // --- Rate limit check for chat ---
+    if (action === 'chat') {
+      if (!messages || !Array.isArray(messages) || messages.length === 0) {
+        return jsonResponse({ error: 'Se requiere al menos un mensaje para el chat' }, 400, cors)
+      }
 
-    if (rateError) {
-      console.error('Rate limit query error:', rateError)
+      const { count: chatToday } = await serviceClient
+        .from('ai_cache')
+        .select('id', { count: 'exact', head: true })
+        .eq('business_id', business.id)
+        .eq('comments_hash', 'chat')
+        .gte('created_at', todayStart.toISOString())
+
+      if ((chatToday ?? 0) >= LIMIT_CHAT) {
+        return jsonResponse({ error: `Límite de ${LIMIT_CHAT} mensajes de chat diarios alcanzado` }, 429, cors)
+      }
     }
 
-    if ((callsToday ?? 0) >= RATE_LIMIT_PER_DAY) {
-      return new Response(
-        JSON.stringify({ error: 'Límite diario de consultas alcanzado. Vuelve mañana.' }),
-        {
-          status: 429,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      )
-    }
-
-    // ── Parse request body ─────────────────────────────────────────────────────
-    let body: RequestBody
-    try {
-      body = await req.json()
-    } catch {
-      return new Response(JSON.stringify({ error: 'Solicitud inválida (JSON mal formado)' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-
-    const { action, messages } = body
-
-    if (action !== 'summary' && action !== 'chat') {
-      return new Response(JSON.stringify({ error: 'Acción no válida' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-
-    // ── Fetch recent comments ──────────────────────────────────────────────────
+    // --- Fetch comments ---
     const windowStart = new Date()
     windowStart.setDate(windowStart.getDate() - COMMENTS_WINDOW_DAYS)
+    windowStart.setUTCHours(0, 0, 0, 0)
 
     const { data: comments, error: commentsError } = await userClient
       .from('comments')
@@ -222,214 +230,207 @@ serve(async (req: Request) => {
       .order('created_at', { ascending: false })
       .limit(500)
 
-    if (commentsError) {
-      console.error('Comments fetch error:', commentsError)
-      return new Response(JSON.stringify({ error: 'Error al obtener comentarios' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
+    if (commentsError || !comments || comments.length === 0) {
+      return jsonResponse({ error: 'No hay comentarios suficientes para analizar (últimos 30 días)' }, 422, cors)
     }
 
-    if (!comments || comments.length === 0) {
-      return new Response(
-        JSON.stringify({ error: 'No hay comentarios suficientes en los últimos 30 días para realizar un análisis.' }),
-        {
-          status: 422,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      )
-    }
-
-    const systemPrompt = buildSystemPrompt(comments as Comment[], business.name)
-
-    // ── Handle summary action (with cache) ────────────────────────────────────
+    // ========================
+    //  ACTION: SUMMARY
+    // ========================
     if (action === 'summary') {
-      // Compute hash over comment IDs + texts to detect changes
-      const hashInput = (comments as Comment[])
-        .map(c => `${c.created_at}:${c.text}`)
-        .join('|')
+      const hashInput = comments.map((c: Comment) => c.created_at + ':' + c.text).join('|')
       const commentsHash = await sha256(hashInput)
 
-      // Check for valid cached response
-      const { data: cached, error: cacheReadError } = await serviceClient
+      // Check exact cache match
+      const { data: cached } = await serviceClient
         .from('ai_cache')
         .select('summary, top_issues, top_strengths, created_at')
         .eq('business_id', business.id)
         .eq('comments_hash', commentsHash)
         .gt('expires_at', new Date().toISOString())
-        .order('created_at', { ascending: false })
-        .limit(1)
         .maybeSingle()
 
-      if (cacheReadError) {
-        console.error('Cache read error:', cacheReadError)
+      if (cached && isCacheValid(cached)) {
+        return jsonResponse({
+          summary: cached.summary,
+          topIssues: cached.top_issues,
+          topStrengths: cached.top_strengths,
+          generatedAt: cached.created_at,
+          fromCache: true,
+        }, 200, cors)
       }
 
-      if (cached) {
-        return new Response(
-          JSON.stringify({
-            summary: cached.summary,
-            topIssues: cached.top_issues,
-            topStrengths: cached.top_strengths,
-            generatedAt: cached.created_at,
+      // Only-cache mode: return latest valid entry or noCache
+      if (onlyCache) {
+        const { data: latestRows } = await serviceClient
+          .from('ai_cache')
+          .select('summary, top_issues, top_strengths, created_at')
+          .eq('business_id', business.id)
+          .neq('comments_hash', 'chat')
+          .order('created_at', { ascending: false })
+          .limit(5)
+
+        const latest = latestRows?.find(isCacheValid)
+
+        if (latest) {
+          return jsonResponse({
+            summary: latest.summary,
+            topIssues: latest.top_issues,
+            topStrengths: latest.top_strengths,
+            generatedAt: latest.created_at,
             fromCache: true,
-          }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
+            isStale: true,
+          }, 200, cors)
+        }
+
+        return jsonResponse({ noCache: true }, 200, cors)
+      }
+
+      // Rate limit check for summary generation
+      const { count: summariesToday } = await serviceClient
+        .from('ai_cache')
+        .select('id', { count: 'exact', head: true })
+        .eq('business_id', business.id)
+        .neq('comments_hash', 'chat')
+        .gte('created_at', todayStart.toISOString())
+
+      if ((summariesToday ?? 0) >= LIMIT_SUMMARY) {
+        const { data: latestRows } = await serviceClient
+          .from('ai_cache')
+          .select('summary, top_issues, top_strengths, created_at')
+          .eq('business_id', business.id)
+          .neq('comments_hash', 'chat')
+          .order('created_at', { ascending: false })
+          .limit(5)
+
+        const latest = latestRows?.find(isCacheValid)
+
+        return jsonResponse({
+          summary: latest?.summary,
+          topIssues: latest?.top_issues,
+          topStrengths: latest?.top_strengths,
+          generatedAt: latest?.created_at,
+          fromCache: true,
+          limitReached: true,
+          error: `Has alcanzado el límite diario de ${LIMIT_SUMMARY} resúmenes. Mostrando el último disponible.`,
+        }, 200, cors)
       }
 
       // Call OpenAI
-      const openAiMessages: ChatMessage[] = [
-        { role: 'system', content: systemPrompt },
-        ...buildSummaryPrompt(),
-      ]
-
       const openAiResponse = await fetch(OPENAI_API_URL, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${openAiKey}`,
+          'Authorization': 'Bearer ' + openAiKey,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           model: MODEL,
-          messages: openAiMessages,
+          messages: [
+            { role: 'system', content: buildSystemPrompt(comments as Comment[], business.name) },
+            ...buildSummaryPrompt(),
+          ],
           temperature: 0.3,
           response_format: { type: 'json_object' },
         }),
       })
 
-      if (!openAiResponse.ok) {
-        const errText = await openAiResponse.text()
-        console.error('OpenAI error:', errText)
-
-        let errorMessage = 'El servicio de IA no está disponible en este momento.'
-        if (errText.includes('insufficient_quota')) {
-          errorMessage = 'Se ha agotado la cuota de OpenAI. Por favor, revisa tu plan de facturación en OpenAI.'
-        }
-
-        return new Response(
-          JSON.stringify({ error: errorMessage }),
-          {
-            status: 502,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          }
-        )
-      }
-
       const openAiData = await openAiResponse.json()
-      let parsed
-      try {
-        parsed = JSON.parse(openAiData.choices[0].message.content)
-      } catch (err) {
-        console.error('Failed to parse OpenAI JSON response:', err)
-        return new Response(JSON.stringify({ error: 'Error procesando la respuesta de la IA' }), {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        })
+
+      if (openAiData.error) {
+        console.error('[OPENAI ERROR]', openAiData.error)
+        throw new Error(openAiData.error.message || 'Error en OpenAI')
       }
 
-      const now = new Date()
-      const expiresAt = new Date(now.getTime() + CACHE_TTL_HOURS * 60 * 60 * 1000)
+      if (!openAiData.choices?.[0]?.message?.content) {
+        console.error('[OPENAI] Unexpected response shape:', JSON.stringify(openAiData).slice(0, 500))
+        throw new Error('Respuesta inesperada de la IA')
+      }
 
-      // Save to cache
-      const { error: cacheInsertError } = await serviceClient.from('ai_cache').insert({
+      const rawParsed = JSON.parse(openAiData.choices[0].message.content)
+      const validated = validateSummaryResponse(rawParsed)
+
+      // Cache the validated result
+      const expiresAt = new Date(Date.now() + CACHE_TTL_HOURS * 3600000)
+      await serviceClient.from('ai_cache').insert({
         business_id: business.id,
         comments_hash: commentsHash,
-        summary: parsed.summary ?? '',
-        top_issues: parsed.topIssues ?? [],
-        top_strengths: parsed.topStrengths ?? [],
+        summary: validated.summary,
+        top_issues: validated.topIssues,
+        top_strengths: validated.topStrengths,
         expires_at: expiresAt.toISOString(),
       })
 
-      if (cacheInsertError) {
-        console.error('Cache insertion error:', cacheInsertError)
-      }
-
-      return new Response(
-        JSON.stringify({
-          summary: parsed.summary ?? '',
-          topIssues: parsed.topIssues ?? [],
-          topStrengths: parsed.topStrengths ?? [],
-          generatedAt: now.toISOString(),
-          fromCache: false,
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      return jsonResponse({
+        summary: validated.summary,
+        topIssues: validated.topIssues,
+        topStrengths: validated.topStrengths,
+        generatedAt: new Date().toISOString(),
+        fromCache: false,
+      }, 200, cors)
     }
 
-    // ── Handle chat action ─────────────────────────────────────────────────────
+    // ========================
+    //  ACTION: CHAT
+    // ========================
     if (action === 'chat') {
-      if (!messages || messages.length === 0) {
-        return new Response(JSON.stringify({ error: 'No se enviaron mensajes' }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        })
-      }
+      const { data: latest } = await serviceClient
+        .from('ai_cache')
+        .select('summary')
+        .eq('business_id', business.id)
+        .neq('comments_hash', 'chat')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
 
-      const openAiMessages: ChatMessage[] = [
-        { role: 'system', content: systemPrompt },
-        ...messages.filter(m => m.role === 'user' || m.role === 'assistant'),
-      ]
+      const recentComments = comments.slice(0, 50) as Comment[]
 
       const openAiResponse = await fetch(OPENAI_API_URL, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${openAiKey}`,
+          'Authorization': 'Bearer ' + openAiKey,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           model: MODEL,
-          messages: openAiMessages,
+          messages: [
+            {
+              role: 'system',
+              content: buildSystemPrompt(recentComments, business.name, latest?.summary),
+            },
+            ...messages!.filter((m: ChatMessage) => m.role === 'user' || m.role === 'assistant'),
+          ],
           temperature: 0.5,
         }),
       })
 
-      if (!openAiResponse.ok) {
-        const errText = await openAiResponse.text()
-        console.error('OpenAI error:', errText)
+      const openAiData = await openAiResponse.json()
 
-        let errorMessage = 'El servicio de IA no está disponible en este momento.'
-        if (errText.includes('insufficient_quota')) {
-          errorMessage = 'Se ha agotado la cuota de OpenAI. Por favor, revisa tu plan de facturación en OpenAI.'
-        }
-
-        return new Response(
-          JSON.stringify({ error: errorMessage }),
-          {
-            status: 502,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          }
-        )
+      if (openAiData.error) {
+        console.error('[OPENAI ERROR]', openAiData.error)
+        throw new Error(openAiData.error.message || 'Error en OpenAI')
       }
 
-      // Log the chat call
-      const now = new Date()
+      if (!openAiData.choices?.[0]?.message?.content) {
+        console.error('[OPENAI] Unexpected response shape:', JSON.stringify(openAiData).slice(0, 500))
+        throw new Error('Respuesta inesperada de la IA')
+      }
+
+      // Register chat usage
       await serviceClient.from('ai_cache').insert({
         business_id: business.id,
         comments_hash: 'chat',
         summary: '[chat]',
-        top_issues: [],
-        top_strengths: [],
-        expires_at: new Date(now.getTime() + 1000 * 60).toISOString(),
+        expires_at: new Date(Date.now() + 60000).toISOString(),
       })
 
-      const openAiData = await openAiResponse.json()
-      const reply = openAiData.choices[0].message.content
-
-      return new Response(
-        JSON.stringify({ reply }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      return jsonResponse({ reply: openAiData.choices[0].message.content }, 200, cors)
     }
 
+    // Should never reach here due to action validation above
+    return jsonResponse({ error: 'Acción no válida' }, 400, cors)
+
   } catch (err) {
-    console.error('Unexpected error:', err)
-    return new Response(
-      JSON.stringify({ error: 'Error interno del servidor', details: err instanceof Error ? err.message : String(err) }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
-    )
+    const cors = getCorsHeaders(req)
+    return jsonResponse({ error: 'Error del servidor', details: String(err) }, 500, cors)
   }
 })

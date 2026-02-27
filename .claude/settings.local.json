@@ -10,7 +10,8 @@
       "Bash(cd:*)",
       "Bash(sed 's/[^A-Z0-9_].*//')",
       "Bash(npm run lint)",
-      "Bash(git stash)"
+      "Bash(git stash)",
+      "Bash(npm run build)"
     ]
   },
   "enableAllProjectMcpServers": true,

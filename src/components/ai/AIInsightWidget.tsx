@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { toast } from 'sonner'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -13,6 +14,7 @@ import {
   MessageCircle,
   Clock,
   ChevronDown,
+  MessageSquareOff,
 } from 'lucide-react'
 import type { AISummary } from '@/types'
 import { AIChatPanel } from './AIChatPanel'
@@ -29,6 +31,15 @@ export function AIInsightWidget({ isPro, aiHelper, onUpgradeClick }: AIInsightWi
   const [chatOpen, setChatOpen] = useState(false)
 
   const { summary, isLoadingSummary, error, fetchSummary } = aiHelper
+  const [hasAutoExpanded, setHasAutoExpanded] = useState(false)
+
+  // Auto-expandir cuando hay un resumen disponible (por primera vez)
+  useEffect(() => {
+    if (summary && !hasAutoExpanded) {
+      setExpanded(true)
+      setHasAutoExpanded(true)
+    }
+  }, [summary, hasAutoExpanded])
 
   if (!isPro) {
     return (
@@ -57,7 +68,7 @@ export function AIInsightWidget({ isPro, aiHelper, onUpgradeClick }: AIInsightWi
               </div>
               <Button
                 onClick={onUpgradeClick}
-                className="bg-purple-600 hover:bg-purple-700 shrink-0"
+                className="bg-purple-600 hover:bg-purple-700 text-white shrink-0"
               >
                 Actualizar a Pro
               </Button>
@@ -81,7 +92,7 @@ export function AIInsightWidget({ isPro, aiHelper, onUpgradeClick }: AIInsightWi
             className="cursor-pointer pb-4"
             onClick={() => {
               if (!summary && !isLoadingSummary) {
-                fetchSummary()
+                fetchSummary().catch(() => { /* Error handled via 'error' state in hook */ })
               }
               setExpanded(prev => !prev)
             }}
@@ -100,7 +111,7 @@ export function AIInsightWidget({ isPro, aiHelper, onUpgradeClick }: AIInsightWi
                     {summary?.fromCache && (
                       <span className="flex items-center gap-1 text-xs text-gray-400 font-normal">
                         <Clock className="w-3 h-3" />
-                        caché
+                        {summary.isStale ? 'datos anteriores' : 'caché'}
                       </span>
                     )}
                   </h3>
@@ -116,7 +127,11 @@ export function AIInsightWidget({ isPro, aiHelper, onUpgradeClick }: AIInsightWi
                     size="sm"
                     onClick={e => {
                       e.stopPropagation()
-                      fetchSummary()
+                      fetchSummary({ showToast: true }).catch(err => {
+                        if (err.message.includes('Límite')) {
+                          toast.error(err.message)
+                        }
+                      })
                     }}
                     disabled={isLoadingSummary}
                     className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
@@ -140,13 +155,26 @@ export function AIInsightWidget({ isPro, aiHelper, onUpgradeClick }: AIInsightWi
                 transition={{ duration: 0.3 }}
               >
                 <CardContent className="pt-0 border-t border-gray-100 dark:border-gray-700">
-                  {/* Error state */}
-                  {error && !isLoadingSummary && (
-                    <div className="py-6 text-center">
-                      <p className="text-sm text-red-500 dark:text-red-400 mb-3">{error}</p>
-                      <Button variant="outline" size="sm" onClick={fetchSummary}>
-                        Reintentar
-                      </Button>
+                  {/* Error state - ONLY show if not a rate limit, and never show retry button */}
+                  {error && !isLoadingSummary && !error.includes('Límite') && (
+                    <div className="py-8 flex flex-col items-center gap-4 text-center">
+                      {error.toLowerCase().includes('suficientes') ? (
+                        <>
+                          <div className="w-16 h-16 bg-gray-50 dark:bg-gray-800/50 rounded-2xl flex items-center justify-center ring-1 ring-gray-100 dark:ring-gray-700">
+                            <MessageSquareOff className="w-8 h-8 text-gray-400 dark:text-gray-500" />
+                          </div>
+                          <div>
+                            <p className="font-medium text-gray-700 dark:text-gray-300">
+                              Aún recopilando datos
+                            </p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 max-w-sm">
+                              Necesitamos reunir un poco más de feedback en los últimos 30 días para que la Inteligencia Artificial pueda extraer conclusiones precisas.
+                            </p>
+                          </div>
+                        </>
+                      ) : (
+                        <p className="text-sm text-red-500 dark:text-red-400 mb-3">{error}</p>
+                      )}
                     </div>
                   )}
 
@@ -168,7 +196,13 @@ export function AIInsightWidget({ isPro, aiHelper, onUpgradeClick }: AIInsightWi
                         </p>
                       </div>
                       <Button
-                        onClick={fetchSummary}
+                        onClick={() => {
+                          fetchSummary({ showToast: true }).catch(err => {
+                            if (err.message.includes('Límite')) {
+                              toast.error(err.message)
+                            }
+                          })
+                        }}
                         className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white"
                       >
                         <Sparkles className="w-4 h-4 mr-2" />
@@ -178,7 +212,7 @@ export function AIInsightWidget({ isPro, aiHelper, onUpgradeClick }: AIInsightWi
                   )}
 
                   {/* Summary content */}
-                  {summary && !isLoadingSummary && (
+                  {summary && !isLoadingSummary && !error && (
                     <SummaryContent
                       summary={summary}
                       onOpenChat={() => setChatOpen(true)}
@@ -237,54 +271,68 @@ function SummaryContent({
   return (
     <div className="py-6 space-y-6">
       {/* Executive summary */}
-      <div>
-        <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
-          {summary.summary}
-        </p>
-      </div>
+      {summary.summary ? (
+        <div>
+          <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+            {summary.summary}
+          </p>
+        </div>
+      ) : (
+        <div>
+          <p className="text-sm text-gray-400 dark:text-gray-500 italic leading-relaxed">
+            No se pudo generar el resumen ejecutivo. Pulsa refrescar para intentarlo de nuevo.
+          </p>
+        </div>
+      )}
 
       {/* Issues + Strengths grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Top Issues */}
-        <div className="bg-red-50 dark:bg-red-900/10 rounded-xl p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <TrendingDown className="w-4 h-4 text-red-500" />
-            <span className="text-sm font-semibold text-red-700 dark:text-red-400">
-              Principales problemas
-            </span>
-          </div>
-          <ul className="space-y-2">
-            {summary.topIssues.map((issue, i) => (
-              <li key={i} className="flex items-start gap-2">
-                <span className="w-5 h-5 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-full text-xs flex items-center justify-center shrink-0 mt-0.5 font-medium">
-                  {i + 1}
+      {(summary.topIssues?.length > 0 || summary.topStrengths?.length > 0) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Top Issues */}
+          {summary.topIssues?.length > 0 && (
+            <div className="bg-red-50 dark:bg-red-900/10 rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <TrendingDown className="w-4 h-4 text-red-500" />
+                <span className="text-sm font-semibold text-red-700 dark:text-red-400">
+                  Principales problemas
                 </span>
-                <span className="text-sm text-gray-700 dark:text-gray-300">{issue}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
+              </div>
+              <ul className="space-y-2">
+                {summary.topIssues.slice(0, 5).map((issue, i) => (
+                  <li key={i} className="flex items-start gap-2">
+                    <span className="w-5 h-5 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-full text-xs flex items-center justify-center shrink-0 mt-0.5 font-medium">
+                      {i + 1}
+                    </span>
+                    <span className="text-sm text-gray-700 dark:text-gray-300">{issue}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
-        {/* Top Strengths */}
-        <div className="bg-green-50 dark:bg-green-900/10 rounded-xl p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <TrendingUp className="w-4 h-4 text-green-500" />
-            <span className="text-sm font-semibold text-green-700 dark:text-green-400">
-              Principales fortalezas
-            </span>
-          </div>
-          <ul className="space-y-2">
-            {summary.topStrengths.map((strength, i) => (
-              <li key={i} className="flex items-start gap-2">
-                <span className="w-5 h-5 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-full text-xs flex items-center justify-center shrink-0 mt-0.5 font-medium">
-                  {i + 1}
+          {/* Top Strengths */}
+          {summary.topStrengths?.length > 0 && (
+            <div className="bg-green-50 dark:bg-green-900/10 rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <TrendingUp className="w-4 h-4 text-green-500" />
+                <span className="text-sm font-semibold text-green-700 dark:text-green-400">
+                  Principales fortalezas
                 </span>
-                <span className="text-sm text-gray-700 dark:text-gray-300">{strength}</span>
-              </li>
-            ))}
-          </ul>
+              </div>
+              <ul className="space-y-2">
+                {summary.topStrengths.slice(0, 5).map((strength, i) => (
+                  <li key={i} className="flex items-start gap-2">
+                    <span className="w-5 h-5 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-full text-xs flex items-center justify-center shrink-0 mt-0.5 font-medium">
+                      {i + 1}
+                    </span>
+                    <span className="text-sm text-gray-700 dark:text-gray-300">{strength}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
-      </div>
+      )}
 
       {/* Open chat CTA */}
       <div className="flex justify-end">

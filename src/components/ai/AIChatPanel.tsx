@@ -142,7 +142,7 @@ export function AIChatPanel({ open, onClose, aiHelper }: AIChatPanelProps) {
                           p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
                           strong: ({ children }) => <strong className="font-bold text-gray-900 dark:text-white">{children}</strong>,
                           ul: ({ children }) => <ul className="list-disc ml-4 space-y-1 my-2">{children}</ul>,
-                          li: ({ children }) => <li className="marker:text-gray-400 dark:marker:text-gray-500">{children}</li>,
+                          li: ({ children }) => <li className="marker:text-current">{children}</li>,
                           ol: ({ children }) => <ol className="list-decimal ml-4 space-y-1 my-2">{children}</ol>,
                         }}
                       >
@@ -173,8 +173,8 @@ export function AIChatPanel({ open, onClose, aiHelper }: AIChatPanelProps) {
             </motion.div>
           )}
 
-          {/* Error inline */}
-          {error && (
+          {/* Error inline - ONLY if not a rate limit */}
+          {error && !error.includes('Límite') && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
