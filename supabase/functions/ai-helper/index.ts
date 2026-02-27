@@ -184,7 +184,10 @@ serve(async (req: Request) => {
     }
 
     if (business.plan !== 'pro') {
-      return jsonResponse({ error: 'Requiere plan Pro' }, 403, cors)
+      return jsonResponse({
+        error: 'PLAN_RESTRICTION',
+        message: 'El AI Helper es una función exclusiva del plan Pro. Por favor, amplía tu plan para desbloquear estas funciones.'
+      }, 403, cors)
     }
 
     // --- Parse body & validate action ---

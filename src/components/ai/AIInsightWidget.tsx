@@ -21,12 +21,12 @@ import { AIChatPanel } from './AIChatPanel'
 import type { UseAIHelperReturn } from './types'
 
 interface AIInsightWidgetProps {
-  isPro: boolean
+  plan: 'free' | 'basic' | 'pro'
   aiHelper: UseAIHelperReturn
   onUpgradeClick: () => void
 }
 
-export function AIInsightWidget({ isPro, aiHelper, onUpgradeClick }: AIInsightWidgetProps) {
+export function AIInsightWidget({ plan, aiHelper, onUpgradeClick }: AIInsightWidgetProps) {
   const [expanded, setExpanded] = useState(false)
   const [chatOpen, setChatOpen] = useState(false)
 
@@ -41,7 +41,7 @@ export function AIInsightWidget({ isPro, aiHelper, onUpgradeClick }: AIInsightWi
     }
   }, [summary, hasAutoExpanded])
 
-  if (!isPro) {
+  if (plan !== 'pro') {
     return (
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -58,8 +58,10 @@ export function AIInsightWidget({ isPro, aiHelper, onUpgradeClick }: AIInsightWi
                 </div>
                 <div>
                   <h3 className="font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
-                    AI Insights
-                    <Badge variant="secondary">Pro</Badge>
+                    AI Helper
+                    <Badge className="bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400 border-0">
+                      Pro
+                    </Badge>
                   </h3>
                   <p className="text-sm text-gray-500 dark:text-gray-400 max-w-md">
                     Análisis automático de tus comentarios: resumen ejecutivo, problemas críticos, fortalezas y chat contextual.
@@ -68,7 +70,7 @@ export function AIInsightWidget({ isPro, aiHelper, onUpgradeClick }: AIInsightWi
               </div>
               <Button
                 onClick={onUpgradeClick}
-                className="bg-purple-600 hover:bg-purple-700 text-white shrink-0"
+                className="bg-violet-600 hover:bg-violet-700 text-white shrink-0"
               >
                 Actualizar a Pro
               </Button>
@@ -104,7 +106,7 @@ export function AIInsightWidget({ isPro, aiHelper, onUpgradeClick }: AIInsightWi
                 </div>
                 <div>
                   <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                    AI Insights
+                    AI Helper
                     <Badge className="bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400">
                       Pro
                     </Badge>

@@ -37,6 +37,7 @@ export interface User {
   businessName: string;
   plan: PlanType;
   requiresPlanSelection?: boolean;
+  isAdmin?: boolean;
 }
 
 export interface AuthState {

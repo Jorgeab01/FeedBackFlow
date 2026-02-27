@@ -118,7 +118,7 @@ const PLAN_LIMITS = {
   basic: {
     maxCommentsPerMonth: 200,
     canExport: true,
-    canAccessAdvancedStats: false,
+    canAccessAdvancedStats: true,
     canCustomizeQR: true,
     allowedQRStyles: ['classic', 'modern', 'colorful', 'elegant', 'dark'],
     canExportPDF: false,
@@ -236,7 +236,7 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
   const { comments, isLoading, deleteComment, getStats } = useComments(user.businessId);
   const { business, getBusinessUrl } = useBusiness(user.businessId);
   // Must be called before any early returns to satisfy rules-of-hooks
-  const aiHelper = useAIHelper(user.plan === 'pro');
+  const aiHelper = useAIHelper(user.plan === 'pro' || user.plan === 'basic');
 
   if (!user) {
     return (
@@ -1568,8 +1568,10 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                     <div>
                       <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                         Estadísticas Avanzadas
-                        <Badge className="bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
-                          Pro
+                        <Badge className={user.plan === 'pro'
+                          ? "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400"
+                          : "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"}>
+                          {user.plan === 'pro' ? 'Pro' : 'Básico'}
                         </Badge>
                       </h3>
                       <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -1590,94 +1592,96 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                     transition={{ duration: 0.3 }}
                   >
                     <CardContent className="pt-0 border-t border-gray-100 dark:border-gray-700">
-                      {/* Control de período de tiempo */}
-                      <div className="py-6 border-b border-gray-100 dark:border-gray-700">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
-                          <div>
-                            <h4 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                              <Calendar className="w-4 h-4 text-purple-500" />
-                              Período de análisis
-                            </h4>
-                            <p className="text-xs text-gray-500 mt-1">
-                              Selecciona el rango de fechas para analizar tus estadísticas
-                            </p>
-                          </div>
+                      {/* Control de período de tiempo - Solo mostrar si hay datos */}
+                      {advancedChartData && (
+                        <div className="py-6 border-b border-gray-100 dark:border-gray-700">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+                            <div>
+                              <h4 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                                <Calendar className="w-4 h-4 text-purple-500" />
+                                Período de análisis
+                              </h4>
+                              <p className="text-xs text-gray-500 mt-1">
+                                Selecciona el rango de fechas para analizar tus estadísticas
+                              </p>
+                            </div>
 
-                          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border ${dateRange.from || dateRange.to
-                            ? 'bg-purple-50 dark:bg-purple-900/20 border-purple-100 dark:border-purple-800'
-                            : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
-                            }`}>
-                            <Clock className={`w-4 h-4 ${dateRange.from || dateRange.to
-                              ? 'text-purple-600 dark:text-purple-400'
-                              : 'text-gray-600 dark:text-gray-400'
-                              }`} />
-                            <span className={`text-sm font-medium ${dateRange.from || dateRange.to
-                              ? 'text-purple-700 dark:text-purple-300'
-                              : 'text-gray-700 dark:text-gray-300'
+                            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border ${dateRange.from || dateRange.to
+                              ? 'bg-purple-50 dark:bg-purple-900/20 border-purple-100 dark:border-purple-800'
+                              : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
                               }`}>
-                              {dateRangeText}
-                            </span>
-                            {(dateRange.from || dateRange.to) && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  clearDateFilter();
-                                }}
-                                className="ml-2 hover:text-purple-900 dark:hover:text-purple-200"
-                              >
-                                <X className="w-3 h-3" />
-                              </button>
-                            )}
+                              <Clock className={`w-4 h-4 ${dateRange.from || dateRange.to
+                                ? 'text-purple-600 dark:text-purple-400'
+                                : 'text-gray-600 dark:text-gray-400'
+                                }`} />
+                              <span className={`text-sm font-medium ${dateRange.from || dateRange.to
+                                ? 'text-purple-700 dark:text-purple-300'
+                                : 'text-gray-700 dark:text-gray-300'
+                                }`}>
+                                {dateRangeText}
+                              </span>
+                              {(dateRange.from || dateRange.to) && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    clearDateFilter();
+                                  }}
+                                  className="ml-2 hover:text-purple-900 dark:hover:text-purple-200"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex flex-wrap gap-2 mb-4">
+                            {statsDatePresets.map((preset) => {
+                              const Icon = preset.icon;
+                              const isActive = activePreset === preset.days;
+
+                              return (
+                                <Button
+                                  key={preset.label}
+                                  variant={isActive ? "default" : "outline"}
+                                  size="sm"
+                                  onClick={() => applyDatePreset(preset.days as DatePreset)}
+                                  className={`gap-2 h-9 ${isActive ? 'bg-purple-600 hover:bg-purple-700' : 'dark:border-gray-600 dark:text-gray-300'}`}
+                                >
+                                  <Icon className="w-3.5 h-3.5" />
+                                  {preset.label}
+                                </Button>
+                              );
+                            })}
+
+                            <Popover open={showCustomDatePicker} onOpenChange={setShowCustomDatePicker}>
+                              <PopoverTrigger asChild>
+                                <Button
+                                  variant={activePreset === 'custom' ? "default" : "outline"}
+                                  size="sm"
+                                  className={`gap-2 h-9 ${activePreset === 'custom' ? 'bg-purple-600 hover:bg-purple-700' : 'dark:border-gray-600 dark:text-gray-300'}`}
+                                >
+                                  <Calendar className="w-3.5 h-3.5" />
+                                  Personalizado
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-0" align="start">
+                                <CalendarComponent
+                                  onSelect={(range) => {
+                                    setDateRange(range);
+                                    setActivePreset('custom');
+                                    if (range.from && range.to) {
+                                      setShowCustomDatePicker(false);
+                                    }
+                                  }}
+                                  selectedRange={dateRange}
+                                  onClose={() => setShowCustomDatePicker(false)}
+                                  bounds={dateBounds}
+                                />
+                              </PopoverContent>
+                            </Popover>
                           </div>
                         </div>
-
-                        <div className="flex flex-wrap gap-2 mb-4">
-                          {statsDatePresets.map((preset) => {
-                            const Icon = preset.icon;
-                            const isActive = activePreset === preset.days;
-
-                            return (
-                              <Button
-                                key={preset.label}
-                                variant={isActive ? "default" : "outline"}
-                                size="sm"
-                                onClick={() => applyDatePreset(preset.days as DatePreset)}
-                                className={`gap-2 h-9 ${isActive ? 'bg-purple-600 hover:bg-purple-700' : 'dark:border-gray-600 dark:text-gray-300'}`}
-                              >
-                                <Icon className="w-3.5 h-3.5" />
-                                {preset.label}
-                              </Button>
-                            );
-                          })}
-
-                          <Popover open={showCustomDatePicker} onOpenChange={setShowCustomDatePicker}>
-                            <PopoverTrigger asChild>
-                              <Button
-                                variant={activePreset === 'custom' ? "default" : "outline"}
-                                size="sm"
-                                className={`gap-2 h-9 ${activePreset === 'custom' ? 'bg-purple-600 hover:bg-purple-700' : 'dark:border-gray-600 dark:text-gray-300'}`}
-                              >
-                                <Calendar className="w-3.5 h-3.5" />
-                                Personalizado
-                              </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0" align="start">
-                              <CalendarComponent
-                                onSelect={(range) => {
-                                  setDateRange(range);
-                                  setActivePreset('custom');
-                                  if (range.from && range.to) {
-                                    setShowCustomDatePicker(false);
-                                  }
-                                }}
-                                selectedRange={dateRange}
-                                onClose={() => setShowCustomDatePicker(false)}
-                                bounds={dateBounds}
-                              />
-                            </PopoverContent>
-                          </Popover>
-                        </div>
-                      </div>
+                      )}
 
                       {advancedChartData ? (
                         <>
@@ -1982,7 +1986,7 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                             Aún no hay suficientes datos
                           </h3>
                           <p className="text-gray-500 dark:text-gray-400 max-w-sm mx-auto">
-                            Necesitas recibir comentarios en este período para generar las estadísticas avanzadas. Prueba ampliando el rango de fechas.
+                            Necesitas recibir comentarios para generar las estadísticas avanzadas. Puedes ampliar el rango de fechas en el selector general de la parte inferior.
                           </p>
                         </div>
                       )}
@@ -2009,10 +2013,12 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                     <div>
                       <h3 className="font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
                         Estadísticas Avanzadas
-                        <Badge variant="secondary">Pro</Badge>
+                        <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border-0">
+                          Básico
+                        </Badge>
                       </h3>
                       <p className="text-sm text-gray-500 dark:text-gray-400 max-w-md">
-                        Actualiza a Pro para desbloquear análisis detallados, gráficas de evolución temporal y métricas de tendencia.
+                        Actualiza a Básico para desbloquear análisis detallados, gráficas de evolución temporal y métricas de tendencia.
                       </p>
                     </div>
                   </div>
@@ -2021,9 +2027,9 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                       setShowSettings(true);
                       setSettingsTab('plan');
                     }}
-                    className="bg-purple-600 hover:bg-purple-700 text-white"
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
                   >
-                    Actualizar a Pro
+                    Actualizar a Básico
                   </Button>
                 </div>
               </CardContent>
@@ -2033,7 +2039,7 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
 
         {/* AI Insights - Solo Pro */}
         <AIInsightWidget
-          isPro={isPro}
+          plan={user.plan as any}
           aiHelper={aiHelper}
           onUpgradeClick={() => {
             setShowSettings(true);

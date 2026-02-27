@@ -18,6 +18,8 @@ const LandingPage = lazy(() => import('@/sections/LandingPage').then(m => ({ def
 const BlogPage = lazy(() => import('@/sections/BlogPage').then(m => ({ default: m.BlogPage })));
 const BlogPostPage = lazy(() => import('@/sections/BlogPostPage').then(m => ({ default: m.BlogPostPage })));
 const NotFoundPage = lazy(() => import('@/sections/NotFoundPage').then(m => ({ default: m.NotFoundPage })));
+// 🆕 Página de Administración
+const AdminPage = lazy(() => import('@/sections/AdminPage').then(m => ({ default: m.AdminPage })));
 
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
@@ -171,6 +173,37 @@ function PlansRoute({ children }: { children: React.ReactNode }) {
   return <Navigate to="/login" replace />;
 }
 
+// 🛡️ Ruta de Admin - Solo accesible para administradores
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, isLoading, user } = useAuth();
+  // Determinar si es admin de forma síncrona
+  const ADMIN_EMAIL = 'jorgeab496@gmail.com';
+  const isUserAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase() || user?.isAdmin === true;
+
+  if (isLoading) {
+    return <LoadingScreen />;
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (!isUserAdmin) {
+    console.warn('[AdminRoute] Acceso Denegado:', {
+      email: user?.email,
+      required: ADMIN_EMAIL,
+      isAdminMetadata: user?.isAdmin
+    });
+
+    toast.error('Acceso denegado', {
+      description: 'No tienes permisos de administrador.'
+    });
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return <>{children}</>;
+}
+
 export default function App() {
   const { user, isAuthenticated, login, loginWithGoogle, isLoading, logout, updateUser } = useAuth();
   const themeProps = useTheme();
@@ -314,6 +347,16 @@ export default function App() {
                   <LoadingScreen />
                 )}
               </PrivateRoute>
+            }
+          />
+
+          {/* 🛡️ Ruta de ADMIN - Solo para administradores */}
+          <Route
+            path="/admin"
+            element={
+              <AdminRoute>
+                <AdminPage themeProps={themeProps} />
+              </AdminRoute>
             }
           />
 

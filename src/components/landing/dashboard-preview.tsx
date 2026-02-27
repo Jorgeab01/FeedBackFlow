@@ -1,10 +1,11 @@
-import { MessageSquare, TrendingUp, Smile, Star, Users, BarChart3, LineChart, ChevronDown, Activity } from "lucide-react"
+import { MessageSquare, TrendingUp, Smile, Star, Users, BarChart3, LineChart, ChevronDown, Activity, Sparkles, TrendingDown, Clock, MessageCircle } from "lucide-react"
 import { FeedbackFlowLogo } from "@/components/landing/logo"
 import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 
 export function DashboardPreview() {
   const [showAdvancedStats, setShowAdvancedStats] = useState(true)
+  const [showAIHelper, setShowAIHelper] = useState(true)
 
   // Datos de ejemplo - evolución de mala a buena
   const stats = {
@@ -137,7 +138,7 @@ export function DashboardPreview() {
                     </div>
                     <div>
                       <h3 className="font-semibold text-foreground flex items-center gap-2">
-                        Estadísticas Avanzadas
+                        Estadísticas
                       </h3>
                     </div>
                   </div>
@@ -375,6 +376,104 @@ export function DashboardPreview() {
                             <div className="flex items-center gap-1">
                               <div className="w-3 h-3 bg-green-500 rounded-sm" />
                               <span className="text-muted-foreground">80-100%</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </motion.div>
+
+            {/* AI Helper Preview */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.15 }}
+              className="mt-6"
+            >
+              <div
+                className="rounded-xl border border-border/40 bg-card overflow-hidden"
+              >
+                <div
+                  className="flex items-center justify-between p-4 cursor-pointer"
+                  onClick={() => setShowAIHelper(!showAIHelper)}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600">
+                      <Sparkles className="h-5 w-5 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-foreground flex items-center gap-2">
+                        AI Helper
+                      </h3>
+                      <p className="text-xs text-muted-foreground">
+                        Análisis inteligente de tu feedback con IA
+                      </p>
+                    </div>
+                  </div>
+                  <ChevronDown className={`w-5 h-5 text-muted-foreground transition-transform duration-300 ${showAIHelper ? 'rotate-180' : ''}`} />
+                </div>
+
+                <AnimatePresence>
+                  {showAIHelper && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <div className="p-4 pt-0 border-t border-border/40 space-y-6">
+                        <div className="py-4 space-y-6">
+                          <p className="text-sm text-muted-foreground leading-relaxed">
+                            Tu satisfacción ha subido un 15% esta semana. Los clientes valoran positivamente la rapidez del servicio, aunque hay comentarios recurrentes sobre el tiempo de espera en horas punta.
+                          </p>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="bg-red-50 dark:bg-red-900/10 rounded-xl p-4">
+                              <div className="flex items-center gap-2 mb-3">
+                                <TrendingDown className="w-4 h-4 text-red-500" />
+                                <span className="text-sm font-semibold text-red-700 dark:text-red-400">
+                                  Problemas
+                                </span>
+                              </div>
+                              <ul className="space-y-2">
+                                <li className="flex items-start gap-2 text-xs text-muted-foreground">
+                                  <span className="w-4 h-4 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-full flex items-center justify-center shrink-0">1</span>
+                                  Tiempo de espera (tardes)
+                                </li>
+                                <li className="flex items-start gap-2 text-xs text-muted-foreground">
+                                  <span className="w-4 h-4 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-full flex items-center justify-center shrink-0">2</span>
+                                  Ruido en el salón principal
+                                </li>
+                              </ul>
+                            </div>
+
+                            <div className="bg-green-50 dark:bg-green-900/10 rounded-xl p-4">
+                              <div className="flex items-center gap-2 mb-3">
+                                <TrendingUp className="w-4 h-4 text-green-500" />
+                                <span className="text-sm font-semibold text-green-700 dark:text-green-400">
+                                  Fortalezas
+                                </span>
+                              </div>
+                              <ul className="space-y-2">
+                                <li className="flex items-start gap-2 text-xs text-muted-foreground">
+                                  <span className="w-4 h-4 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-full flex items-center justify-center shrink-0">1</span>
+                                  Atención personalizada
+                                </li>
+                                <li className="flex items-start gap-2 text-xs text-muted-foreground">
+                                  <span className="w-4 h-4 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-full flex items-center justify-center shrink-0">2</span>
+                                  Calidad de los productos
+                                </li>
+                              </ul>
+                            </div>
+                          </div>
+
+                          <div className="flex justify-end">
+                            <div className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground bg-secondary/30">
+                              <MessageCircle className="h-3.5 w-3.5 text-primary" />
+                              Preguntar a la IA
                             </div>
                           </div>
                         </div>

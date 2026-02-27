@@ -352,9 +352,9 @@ export function PlansPage({ onSelectPlan, isAuthenticated, user, themeProps }: P
                     <Check className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
                     <span>Exportar CSV</span>
                   </li>
-                  <li className="flex items-start gap-2 text-gray-400 dark:text-gray-500">
-                    <span className="w-4 h-4 flex items-center justify-center text-xs">×</span>
-                    <span>Sin estadísticas avanzadas</span>
+                  <li className="flex items-start gap-2">
+                    <Check className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                    <span>Estadísticas avanzadas</span>
                   </li>
                   <li className="flex items-start gap-2 text-gray-400 dark:text-gray-500">
                     <span className="w-4 h-4 flex items-center justify-center text-xs">×</span>
@@ -428,7 +428,7 @@ export function PlansPage({ onSelectPlan, isAuthenticated, user, themeProps }: P
                   </li>
                   <li className="flex items-start gap-2">
                     <Check className="w-4 h-4 text-yellow-300 mt-0.5 flex-shrink-0" />
-                    <span>Estadísticas avanzadas</span>
+                    <span>Ayudante de IA</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <Check className="w-4 h-4 text-yellow-300 mt-0.5 flex-shrink-0" />

@@ -113,7 +113,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       lastHydratedUserId.current = authUser.id;
 
       const rawMetaData = authUser.user_metadata || {};
+      console.log('[auth] Hydrating user with metadata:', rawMetaData);
       const requiresPlanSelection = rawMetaData.requires_plan_selection === true;
+      const isAdmin = rawMetaData.is_admin === true;
 
       const mergedUser: User = {
         id: authUser.id,
@@ -122,6 +124,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         businessName: businessData?.name || 'Configurando Negocio...',
         plan: businessData?.plan || 'free',
         requiresPlanSelection,
+        isAdmin,
       };
       setUser(mergedUser);
       setIsAuthenticated(true);

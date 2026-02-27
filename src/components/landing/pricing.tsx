@@ -28,6 +28,7 @@ const plans = [
     features: [
       "QR personalizado",
       "200 comentarios / mes",
+      "Estadísticas avanzadas",
       "Exportar CSV",
     ],
     cta: "Elegir Básico",
@@ -41,7 +42,7 @@ const plans = [
     features: [
       "Todo lo del Básico",
       "Comentarios ilimitados",
-      "Estadísticas avanzadas",
+      "Ayudante de IA",
       "Exportar Excel/PDF",
       "Soporte prioritario",
     ],
