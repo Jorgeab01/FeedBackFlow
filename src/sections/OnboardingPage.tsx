@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Building2, ArrowRight } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
@@ -10,7 +11,7 @@ import { toast } from 'sonner';
 import { useTheme } from '@/hooks/useTheme';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import type { User } from '@/types';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 
 interface OnboardingPageProps {
@@ -25,6 +26,7 @@ export function OnboardingPage({ user, themeProps }: OnboardingPageProps) {
     const [businessName, setBusinessName] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [termsAccepted, setTermsAccepted] = useState(false);
     const navigate = useNavigate();
     const { updateUser } = useAuth();
 
@@ -33,6 +35,11 @@ export function OnboardingPage({ user, themeProps }: OnboardingPageProps) {
 
         if (businessName.trim().length < 3) {
             setError('El nombre debe tener al menos 3 caracteres');
+            return;
+        }
+
+        if (!termsAccepted) {
+            toast.error('Debes aceptar los términos y condiciones para continuar');
             return;
         }
 
@@ -126,10 +133,30 @@ export function OnboardingPage({ user, themeProps }: OnboardingPageProps) {
                                 {error && <p className="text-sm text-red-500 mt-1">{error}</p>}
                             </div>
 
+                            <div className="flex items-start gap-3">
+                                <Checkbox
+                                    id="terms"
+                                    checked={termsAccepted}
+                                    onCheckedChange={(checked) => setTermsAccepted(checked === true)}
+                                    className="mt-0.5"
+                                />
+                                <Label htmlFor="terms" className="text-sm text-gray-600 dark:text-gray-400 leading-snug cursor-pointer">
+                                    He leído y acepto los{' '}
+                                    <Link
+                                        to="/terminos-y-condiciones"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-indigo-600 dark:text-indigo-400 underline hover:text-indigo-800 dark:hover:text-indigo-300"
+                                    >
+                                        términos y condiciones
+                                    </Link>
+                                </Label>
+                            </div>
+
                             <Button
                                 type="submit"
-                                disabled={isLoading}
-                                className="w-full h-12 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold rounded-xl transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98]"
+                                disabled={isLoading || !termsAccepted}
+                                className="w-full h-12 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold rounded-xl transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                             >
                                 {isLoading ? (
                                     <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />

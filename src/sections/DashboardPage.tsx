@@ -1568,10 +1568,8 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
                     <div>
                       <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                         Estadísticas Avanzadas
-                        <Badge className={user.plan === 'pro'
-                          ? "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400"
-                          : "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"}>
-                          {user.plan === 'pro' ? 'Pro' : 'Básico'}
+                        <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                          Basic
                         </Badge>
                       </h3>
                       <p className="text-sm text-gray-500 dark:text-gray-400">
