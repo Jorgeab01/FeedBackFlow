@@ -138,7 +138,7 @@ export function OnboardingPage({ user, themeProps }: OnboardingPageProps) {
                                     id="terms"
                                     checked={termsAccepted}
                                     onCheckedChange={(checked) => setTermsAccepted(checked === true)}
-                                    className="mt-0.5"
+                                    className="mt-0.5 border-2 border-gray-400 dark:border-gray-500 data-[state=checked]:bg-indigo-600 data-[state=checked]:border-indigo-600"
                                 />
                                 <Label htmlFor="terms" className="text-sm text-gray-600 dark:text-gray-400 leading-snug cursor-pointer">
                                     He leído y acepto los{' '}
