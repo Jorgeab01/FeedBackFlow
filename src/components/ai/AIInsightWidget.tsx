@@ -24,9 +24,10 @@ interface AIInsightWidgetProps {
   plan: 'free' | 'basic' | 'pro'
   aiHelper: UseAIHelperReturn
   onUpgradeClick: () => void
+  lastCommentDate?: string | null
 }
 
-export function AIInsightWidget({ plan, aiHelper, onUpgradeClick }: AIInsightWidgetProps) {
+export function AIInsightWidget({ plan, aiHelper, onUpgradeClick, lastCommentDate }: AIInsightWidgetProps) {
   const [expanded, setExpanded] = useState(false)
   const [chatOpen, setChatOpen] = useState(false)
 
@@ -40,6 +41,11 @@ export function AIInsightWidget({ plan, aiHelper, onUpgradeClick }: AIInsightWid
       setHasAutoExpanded(true)
     }
   }, [summary, hasAutoExpanded])
+
+  // Determinar si el resumen está desactualizado respecto a los comentarios más recientes
+  const isOutdated = summary?.generatedAt && lastCommentDate
+    ? new Date(lastCommentDate) > new Date(summary.generatedAt)
+    : false;
 
   if (plan !== 'pro') {
     return (
@@ -110,10 +116,10 @@ export function AIInsightWidget({ plan, aiHelper, onUpgradeClick }: AIInsightWid
                     <Badge className="bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400">
                       Pro
                     </Badge>
-                    {summary?.fromCache && (
-                      <span className="flex items-center gap-1 text-xs text-gray-400 font-normal">
+                    {isOutdated && summary && (
+                      <span className="flex items-center gap-1 text-xs text-orange-500 font-medium bg-orange-50 dark:bg-orange-900/20 px-2 py-0.5 rounded-full">
                         <Clock className="w-3 h-3" />
-                        {summary.isStale ? 'datos anteriores' : 'caché'}
+                        Desactualizado
                       </span>
                     )}
                   </h3>

@@ -900,6 +900,7 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
             setShowSettings(true);
             setSettingsTab('plan');
           }}
+          lastCommentDate={filteredComments.length > 0 ? filteredComments[0].createdAt : null}
         />
 
         <DashboardShareLink
