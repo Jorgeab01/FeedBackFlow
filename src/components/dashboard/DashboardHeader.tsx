@@ -23,6 +23,7 @@ interface DashboardHeaderProps {
         setTheme: ReturnType<typeof useTheme>['setTheme'];
     };
     getPlanBadge: () => React.ReactNode;
+    hasUnread?: boolean;
 }
 
 export function DashboardHeader({
@@ -37,7 +38,8 @@ export function DashboardHeader({
     setShowSettings,
     setSettingsTab,
     themeProps,
-    getPlanBadge
+    getPlanBadge,
+    hasUnread
 }: DashboardHeaderProps) {
     return (
         <>
@@ -142,15 +144,23 @@ export function DashboardHeader({
 
                             <ThemeToggle theme={themeProps.theme} setTheme={themeProps.setTheme} />
 
-                            <Button
-                                variant="outline"
-                                size="icon"
-                                onClick={() => setShowSettings(true)}
-                                className="dark:border-gray-600 dark:text-gray-300 h-8 w-8 sm:h-9 sm:w-9"
-                                title="Ajustes"
-                            >
-                                <Settings className="w-4 h-4" />
-                            </Button>
+                            <div className="relative">
+                                <Button
+                                    variant="outline"
+                                    size="icon"
+                                    onClick={() => setShowSettings(true)}
+                                    className="dark:border-gray-600 dark:text-gray-300 h-8 w-8 sm:h-9 sm:w-9"
+                                    title="Ajustes"
+                                >
+                                    <Settings className="w-4 h-4" />
+                                </Button>
+                                {hasUnread && (
+                                    <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                                        <span className="relative inline-flex rounded-full h-3 w-3 bg-indigo-500 border-2 border-white dark:border-gray-800"></span>
+                                    </span>
+                                )}
+                            </div>
 
                             <Button
                                 variant="outline"

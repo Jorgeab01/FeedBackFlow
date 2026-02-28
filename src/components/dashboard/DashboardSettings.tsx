@@ -1,3 +1,5 @@
+import { useEffect } from 'react';
+import type { ChangelogItem } from '@/data/changelog';
 import {
     Dialog,
     DialogContent,
@@ -13,7 +15,7 @@ import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import {
     Settings, Save, Mail, AlertCircle, Check, Lock, Copy,
-    CreditCard, ExternalLink, Crown, AlertTriangle, Trash2, X
+    CreditCard, ExternalLink, Crown, AlertTriangle, Trash2, X, Sparkles
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -57,6 +59,9 @@ interface DashboardSettingsProps {
     deleteConfirmText: string;
     setDeleteConfirmText: (text: string) => void;
     handleDeleteAccount: () => void;
+    hasUnread?: boolean;
+    markAsRead?: () => void;
+    changelogData?: ChangelogItem[];
 }
 
 export function DashboardSettings({
@@ -96,8 +101,17 @@ export function DashboardSettings({
     setShowDeleteConfirm,
     deleteConfirmText,
     setDeleteConfirmText,
-    handleDeleteAccount
+    handleDeleteAccount,
+    hasUnread,
+    markAsRead,
+    changelogData = []
 }: DashboardSettingsProps) {
+
+    useEffect(() => {
+        if (showSettings && settingsTab === 'changelog' && markAsRead) {
+            markAsRead();
+        }
+    }, [showSettings, settingsTab, markAsRead]);
     return (
         <Dialog open={showSettings} onOpenChange={setShowSettings}>
             <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -112,10 +126,18 @@ export function DashboardSettings({
                 </DialogHeader>
 
                 <Tabs value={settingsTab} onValueChange={setSettingsTab} className="mt-4">
-                    <TabsList className="grid w-full grid-cols-4">
+                    <TabsList className="grid w-full grid-cols-5">
                         <TabsTrigger value="general">General</TabsTrigger>
                         <TabsTrigger value="billing">Suscripción</TabsTrigger>
                         <TabsTrigger value="support">Soporte</TabsTrigger>
+                        <TabsTrigger value="changelog" className="relative">
+                            Novedades
+                            {hasUnread && (
+                                <span className="absolute top-1.5 right-2 flex h-2 w-2">
+                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
+                                </span>
+                            )}
+                        </TabsTrigger>
                         <TabsTrigger value="danger" className="text-red-600">Cuenta</TabsTrigger>
                     </TabsList>
 
@@ -560,6 +582,53 @@ export function DashboardSettings({
                                         </div>
                                     )}
                                 </div>
+                            </div>
+                        </div>
+                    </TabsContent>
+
+                    <TabsContent value="changelog" className="space-y-6 mt-4">
+                        <div className="space-y-4">
+                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white border-b border-gray-100 dark:border-gray-800 pb-2">Últimas novedades</h3>
+                            <div className="space-y-6">
+                                {changelogData.length === 0 ? (
+                                    <div className="flex flex-col items-center justify-center p-8 text-center space-y-4">
+                                        <div className="bg-indigo-100 dark:bg-indigo-900/50 p-4 rounded-full text-indigo-500 mb-2">
+                                            <Sparkles className="w-8 h-8 opacity-50" />
+                                        </div>
+                                        <h4 className="text-gray-900 dark:text-white font-medium text-lg">Aún no hay novedades</h4>
+                                        <p className="text-gray-500 dark:text-gray-400 text-sm max-w-sm">
+                                            Pronto publicaremos nuevas actualizaciones y mejoras para el panel de control. ¡Mantente atento!
+                                        </p>
+                                    </div>
+                                ) : (
+                                    changelogData.map((item) => (
+                                        <div key={item.id} className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-5 border border-gray-100 dark:border-gray-700">
+                                            <div className="flex items-center gap-3 mb-2">
+                                                <div className="bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 p-2 rounded-lg">
+                                                    <Sparkles className="w-5 h-5" />
+                                                </div>
+                                                <div>
+                                                    <div className="flex items-center gap-2">
+                                                        <h4 className="font-bold text-gray-900 dark:text-white text-base">{item.title}</h4>
+                                                        <Badge variant="outline" className="text-xs bg-white dark:bg-gray-800">{item.version}</Badge>
+                                                    </div>
+                                                    <time className="text-xs text-gray-500 dark:text-gray-400 font-medium">{item.date}</time>
+                                                </div>
+                                            </div>
+                                            <p className="text-sm text-gray-600 dark:text-gray-300 mb-4 ml-14">
+                                                {item.description}
+                                            </p>
+                                            <ul className="space-y-2 ml-14">
+                                                {item.features.map((feat, i) => (
+                                                    <li key={i} className="text-sm text-gray-600 dark:text-gray-300 flex items-start gap-2">
+                                                        <span className="text-indigo-500 mt-1 flex-shrink-0">•</span>
+                                                        <span>{feat}</span>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    ))
+                                )}
                             </div>
                         </div>
                     </TabsContent>

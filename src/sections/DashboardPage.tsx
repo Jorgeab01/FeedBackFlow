@@ -5,6 +5,7 @@ import { useComments } from '@/hooks/useComments';
 import { useBusiness } from '@/hooks/useBusiness';
 import { useAIHelper } from '@/hooks/useAIHelper';
 import { useTheme } from '@/hooks/useTheme';
+import { useChangelog } from '@/hooks/useChangelog';
 import { toast } from 'sonner';
 import { AIInsightWidget } from '@/components/ai/AIInsightWidget';
 import { Badge } from '@/components/ui/badge';
@@ -167,8 +168,9 @@ function useMonthlyUsage(businessId: string, plan: PlanType) {
 
 export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps) {
   const { comments, isLoading, deleteComment } = useComments(user.businessId);
-  const { business, getBusinessUrl } = useBusiness(user.businessId);
+  const { business, getBusinessUrl, updateBusiness } = useBusiness(user.businessId);
   const aiHelper = useAIHelper(user.plan === 'pro' || user.plan === 'basic');
+  const { changelogData, hasUnread, markAsRead } = useChangelog(business, updateBusiness);
 
   if (!user) {
     return (
@@ -861,6 +863,7 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
         setSettingsTab={setSettingsTab}
         themeProps={themeProps}
         getPlanBadge={getPlanBadge}
+        hasUnread={hasUnread}
       />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -1020,6 +1023,9 @@ export function DashboardPage({ user, onLogout, themeProps }: DashboardPageProps
         deleteConfirmText={deleteConfirmText}
         setDeleteConfirmText={setDeleteConfirmText}
         handleDeleteAccount={handleDeleteAccount}
+        hasUnread={hasUnread}
+        markAsRead={markAsRead}
+        changelogData={changelogData}
       />
 
       <DashboardExportDialog

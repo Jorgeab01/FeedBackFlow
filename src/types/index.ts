@@ -18,6 +18,7 @@ export interface Business {
   is_active: boolean;
   created_at?: string;
   updated_at?: string;
+  last_seen_changelog?: string;
 }
 
 export interface Plan {
