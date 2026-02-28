@@ -126,7 +126,7 @@ export function DashboardSettings({
                 </DialogHeader>
 
                 <Tabs value={settingsTab} onValueChange={setSettingsTab} className="mt-4">
-                    <TabsList className="grid w-full grid-cols-5">
+                    <TabsList className="grid w-full grid-cols-3 sm:grid-cols-5 h-auto">
                         <TabsTrigger value="general">General</TabsTrigger>
                         <TabsTrigger value="billing">Suscripción</TabsTrigger>
                         <TabsTrigger value="support">Soporte</TabsTrigger>
